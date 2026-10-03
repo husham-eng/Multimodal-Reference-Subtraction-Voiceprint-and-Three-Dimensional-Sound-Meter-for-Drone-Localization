@@ -21,7 +21,7 @@ from .datasets import SourceBank
 from .dsp import angle_between_deg, snr_db, welch_psd
 from .localization import NeuralLocalizer, SoundMeter3D
 from .reference_subtraction import ReferenceCanceller
-from .simulation import Scene, homing_trajectory, render, static
+from .simulation import Scene, homing_trajectory, octahedral_array, render, static
 from .tracking import Kalman3D
 from .voiceprint import N_FFT, VoiceprintModel, estimate_bpf
 
@@ -54,7 +54,7 @@ def _train_neural(scene: Scene, canceller, vp: VoiceprintModel, n: int, rng, fra
 
 def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 40.0,
         seed: int = 0, out_dir: str | Path = "outputs", n_voiceprint: int = 120,
-        n_neural: int = 1200, plots: bool = True) -> dict:
+        n_neural: int = 1200, plots: bool = True, array_radius: float = 0.08) -> dict:
     if drone not in DRONE_PROFILES:
         raise SystemExit(f"unknown drone '{drone}'. Choose from: {', '.join(DRONE_PROFILES)}")
     out = Path(out_dir)
@@ -72,7 +72,7 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
     print(f"  calibrated harmonic level at 1 m: {vp.level_1m_db:.1f} dB")
 
     print("[2/4] Training multimodal reference subtraction (drone-free window) ...")
-    scene = Scene(fs=fs, drone=drone, bank=bank)
+    scene = Scene(array=octahedral_array(array_radius), fs=fs, drone=drone, bank=bank)
     cal = render(scene, 8.0, drone_on=False, rng=rng)
     canceller = ReferenceCanceller().fit(cal.mics, cal.refs)
     val = render(scene, 4.0, drone_on=False, rng=rng)
@@ -122,7 +122,7 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
         rows.append(row)
 
     report = _evaluate(rows, center, drone)
-    report.update(drone=drone, dataset=dataset, interference_reduction_db=red,
+    report.update(drone=drone, dataset=dataset, array_radius_m=array_radius, interference_reduction_db=red,
                   interference_reduction_ref_mic_only_db=red_mic, snr_in_db=snr_in, snr_out_db=snr_out,
                   voiceprint_accuracy=vp.accuracy, level_1m_db=vp.level_1m_db, runtime_s=time.time() - t0)
     _print_report(report)

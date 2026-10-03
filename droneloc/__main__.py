@@ -19,6 +19,7 @@ def main() -> None:
     r.add_argument("--out", default="outputs")
     r.add_argument("--n-voiceprint", type=int, default=120, help="training segments per class")
     r.add_argument("--n-neural", type=int, default=1200, help="simulated frames for the neural localizer")
+    r.add_argument("--array-radius", type=float, default=0.08, help="sphere radius [m] (0.08 = 160 mm sensor)")
     r.add_argument("--no-plots", action="store_true")
     a = ap.parse_args()
     if a.cmd == "libraries":
@@ -28,7 +29,8 @@ def main() -> None:
         download(a.dataset)
     else:
         from .pipeline import run
-        run(a.drone, a.dataset, a.duration, a.seed, a.out, a.n_voiceprint, a.n_neural, not a.no_plots)
+        run(a.drone, a.dataset, a.duration, a.seed, a.out, a.n_voiceprint, a.n_neural, not a.no_plots,
+            a.array_radius)
 
 
 if __name__ == "__main__":

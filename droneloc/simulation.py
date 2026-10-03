@@ -49,7 +49,7 @@ class MicArray:
         return float(np.linalg.norm(d, axis=-1).max() / SPEED_OF_SOUND)
 
 
-def octahedral_array(radius: float = 0.1, center=(0.0, 0.0, 1.0)) -> MicArray:
+def octahedral_array(radius: float = 0.08, center=(0.0, 0.0, 1.0)) -> MicArray:
     """Six microphones on a sphere at +-x, +-y, +-z."""
     pos = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], float)
     return MicArray(pos * radius, np.asarray(center, float))
@@ -78,7 +78,7 @@ def homing_trajectory(duration: float, start=(30.0, 17.0, 18.0), end=(1.5, -1.0,
 
 @dataclass
 class Scene:
-    array: MicArray = field(default_factory=octahedral_array)
+    array: MicArray = field(default_factory=lambda: octahedral_array(0.08))
     fs: int = 16000
     drone: str = "hexa_swap"
     trajectory: Trajectory | None = None
