@@ -1,6 +1,8 @@
 # Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization
 3D acoustic homing for a battery-swap drone using a six-microphone spherical array, GCC-PHAT, rotor silence windows, and Kalman-filter tracking.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228)
+
 <div dir="rtl">
 
 ## نظرة عامة
@@ -81,7 +83,7 @@ python -m pytest tests
 
 - التقرير الكامل (الإصدار الثاني): [`docs/Drone_Acoustic_Guidance_Report_EN_v2.docx`](docs/Drone_Acoustic_Guidance_Report_EN_v2.docx)
 - بيانات الاستشهاد في [`CITATION.cff`](CITATION.cff)، وبيانات أرشفة Zenodo في [`.zenodo.json`](.zenodo.json).
-- الأرشفة على Zenodo: DOI: `10.5281/zenodo.XXXXXXX` (سيُستبدل بالرقم الفعلي بعد أول إصدار).
+- الأرشفة على Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228) (كل الإصدارات)، والإصدار 2.0.0: [10.5281/zenodo.23122229](https://doi.org/10.5281/zenodo.23122229)
 
 ## ملاحظات وحدود
 

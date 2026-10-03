@@ -6,6 +6,14 @@ authors:
   - family-names: Saied
     given-names: Husham
 version: "2.0.0"
+doi: 10.5281/zenodo.23122228
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23122228
+    description: "Concept DOI (all versions)"
+  - type: doi
+    value: 10.5281/zenodo.23122229
+    description: "Version 2.0.0"
 date-released: "2026-10-03"
 repository-code: "https://github.com/husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization"
 keywords:
