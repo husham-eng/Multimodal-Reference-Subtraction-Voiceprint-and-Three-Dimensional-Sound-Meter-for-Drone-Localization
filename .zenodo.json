@@ -36,5 +36,7 @@
       "relation": "references",
       "scheme": "url"
     }
-  ]
+  ],
+  "license": "MIT",
+  "version": "2.0.1"
 }
