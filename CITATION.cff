@@ -2,10 +2,12 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Multimodal Reference Subtraction, Drone Voiceprint and Three-Dimensional Sound Meter for Drone Localization"
 type: software
+license: MIT
 authors:
   - family-names: Saied
     given-names: Husham
-version: "2.0.0"
+    affiliation: "Prince Sultan Military College of Health"
+version: "2.0.1"
 doi: 10.5281/zenodo.23122228
 identifiers:
   - type: doi

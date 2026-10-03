@@ -3,15 +3,40 @@
   "upload_type": "software",
   "description": "Python package and simulation environment for 3D acoustic localization of drones with a six-microphone spherical array (D = 160 mm): drone sound library (synthetic rotor-noise models and public datasets), multimodal reference subtraction, drone voiceprint classification, voiceprint-guided SRP-PHAT 3D sound meter, neural localizer and Kalman tracking. Includes the project report (Revision 2).",
   "creators": [
-    {"name": "Saied, Husham"}
+    {
+      "name": "Saied, Husham",
+      "affiliation": "Prince Sultan Military College of Health"
+    }
   ],
   "keywords": [
-    "drone localization", "spherical microphone array", "reference subtraction", "drone voiceprint",
-    "blade-passing frequency", "GCC-PHAT", "SRP-PHAT", "Kalman filter", "acoustic guidance", "battery swap"
+    "drone localization",
+    "spherical microphone array",
+    "reference subtraction",
+    "drone voiceprint",
+    "blade-passing frequency",
+    "GCC-PHAT",
+    "SRP-PHAT",
+    "Kalman filter",
+    "acoustic guidance",
+    "battery swap"
   ],
   "related_identifiers": [
-    {"identifier": "https://github.com/saraalemadi/DroneAudioDataset", "relation": "references", "scheme": "url"},
-    {"identifier": "https://github.com/DroneDetectionThesis/Drone-detection-dataset", "relation": "references", "scheme": "url"},
-    {"identifier": "https://github.com/karolpiczak/ESC-50", "relation": "references", "scheme": "url"}
-  ]
+    {
+      "identifier": "https://github.com/saraalemadi/DroneAudioDataset",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/DroneDetectionThesis/Drone-detection-dataset",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/karolpiczak/ESC-50",
+      "relation": "references",
+      "scheme": "url"
+    }
+  ],
+  "license": "MIT",
+  "version": "2.0.1"
 }
