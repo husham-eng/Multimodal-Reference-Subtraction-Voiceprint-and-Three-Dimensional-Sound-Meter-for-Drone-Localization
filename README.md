@@ -77,6 +77,12 @@ python -m pytest tests
 ![spectrograms](docs/spectrograms.png)
 ![errors](docs/errors.png)
 
+## التقرير والاستشهاد
+
+- التقرير الكامل (الإصدار الثاني): [`docs/Drone_Acoustic_Guidance_Report_EN_v2.docx`](docs/Drone_Acoustic_Guidance_Report_EN_v2.docx)
+- بيانات الاستشهاد في [`CITATION.cff`](CITATION.cff)، وبيانات أرشفة Zenodo في [`.zenodo.json`](.zenodo.json).
+- الأرشفة على Zenodo: DOI: `10.5281/zenodo.XXXXXXX` (سيُستبدل بالرقم الفعلي بعد أول إصدار).
+
 ## ملاحظات وحدود
 
 - بدون الطرح المرجعي يفشل التحديد المكاني بالكامل، لأن ماكينات المحطة القريبة تطغى على صوت الدرون.
