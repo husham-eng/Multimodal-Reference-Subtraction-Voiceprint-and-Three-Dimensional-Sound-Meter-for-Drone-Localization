@@ -79,6 +79,28 @@ python -m pytest tests
 ![spectrograms](docs/spectrograms.png)
 ![errors](docs/errors.png)
 
+## المراجعة العلمية: ما الذي أُضيف (الإصدار القادم)
+
+استجابةً لتقرير المراجعة أُضيفت تجارب وأدوات جديدة (التفاصيل في `experiments/` و`outputs/revision/` بعد التشغيل):
+
+| الإضافة | الملف |
+|---|---|
+| نموذج تشتت الكرة الصلبة + أخطاء العتاد (الموضع، الكسب، التوقيت، اختلاف الساعة) | `droneloc/sphere.py`, `droneloc/simulation.py` |
+| SRP-PHAT بتوجيه الكرة وتنقيح محلي (بلا حد للشبكة) | `droneloc/localization.py` |
+| مُلغٍ مرجعي تكيفي مع بوابة ضد تسرب الهدف | `droneloc/reference_subtraction.py` |
+| النمط النشط: منارة بمستوى معلن، امتصاص ISO 9613-1، ضجيج مراوح موزّع، كبح، مرشح مطابق، Notch، مُلغٍ مرجعي، دمج بالتباين العكسي، ميزانية الطاقة | `droneloc/exp_active.py` |
+| تجارب الاستقبال السلبي (M1، M4، M6) | `droneloc/exp_passive.py` |
+| تقييم البصمة بلا تسرب (حسب التسجيل/الجلسة/الحملة) | `droneloc/exp_voiceprint.py` |
+| أدوات البيانات الحقيقية: `evaluate-array`، `coherence`، `sphere-geometry`، وسكربت التسجيل | `droneloc/real_array.py`, `experiments/record.py` |
+| دليل بناء العتاد واختباره (بالعربي) | [`docs/Hardware_Guide_AR.docx`](docs/Hardware_Guide_AR.docx) |
+
+لإعادة إنتاج تجارب المراجعة:
+```
+python experiments/run_revision.py m1 m4 m5 m6 m2
+python experiments/summarize_revision.py
+python experiments/figures_revision.py
+```
+
 ## التقرير والاستشهاد
 
 - التقرير الكامل (الإصدار الثاني): [`docs/Drone_Acoustic_Guidance_Report_EN_v2.docx`](docs/Drone_Acoustic_Guidance_Report_EN_v2.docx)

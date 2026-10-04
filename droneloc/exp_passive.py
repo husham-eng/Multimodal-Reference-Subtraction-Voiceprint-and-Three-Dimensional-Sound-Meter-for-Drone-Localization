@@ -200,11 +200,12 @@ def _random_trajectory(rng, duration):
 
 
 def run_m6(n_runs: int = 30, duration: float = 30.0, seed: int = 0, out: Path = Path("outputs/revision"),
-           vp=None) -> dict:
+           vp=None, sensor_aug: bool = True, tag: str = "m6") -> dict:
     """Monte Carlo of the full passive pipeline over seeds, trajectories, interference level and wind."""
     out.mkdir(parents=True, exist_ok=True)
     from .voiceprint import VoiceprintModel
-    vp = vp or VoiceprintModel.train("hexa_swap", n_per_class=80, seed=seed, verbose=False)
+    vp = vp or VoiceprintModel.train("hexa_swap", n_per_class=80, seed=seed, verbose=False,
+                                     **(dict(rpm_range=0.30, sensor_aug=True) if sensor_aug else {}))
     runs = []
     for k in range(n_runs):
         rng = np.random.default_rng(seed + 1000 + k)
@@ -225,7 +226,7 @@ def run_m6(n_runs: int = 30, duration: float = 30.0, seed: int = 0, out: Path = 
             truth = rec.positions[end - frame // 2]
             ana = vp.analyse(clean[0, end - FS:end])
             kf.predict()
-            ok = ana["p_target"] >= 0.5
+            ok = ana["is_target"]
             det.append(ok)
             if ok:
                 m = meter.measure(clean[:, end - frame:end], ana["bpf_hz"])
@@ -252,5 +253,5 @@ def run_m6(n_runs: int = 30, duration: float = 30.0, seed: int = 0, out: Path = 
     keys = ["snr_in", "snr_out", "detection", "angle_median", "angle_p90", "range_err_median", "track_median", "track_final"]
     summary = {k: bootstrap_ci([r[k] for r in runs]) for k in keys}
     res = {"runs": runs, "summary": summary, "n_runs": n_runs}
-    (out / "m6.json").write_text(json.dumps(res, indent=1))
+    (out / f"{tag}.json").write_text(json.dumps(res, indent=1))
     return res

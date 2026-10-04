@@ -340,7 +340,7 @@ def calibrate_sigmas(L: Listener, rng, n: int = 160):
     return lambda s: (float(np.interp(s, centres, si)), float(np.interp(s, centres, st)))
 
 
-def window_study(n_win: int = 40, seed: int = 0) -> dict:
+def window_study(n_win: int = 40, seed: int = 0, egos=(-30, -20, -10, 0, 10), save: Path | None = None) -> dict:
     """Detection (Pfa = 1%) and direction error vs ego-noise level, distance and processing chain."""
     res = {}
     L0 = Listener(ActiveConfig(), seed)
@@ -348,7 +348,7 @@ def window_study(n_win: int = 40, seed: int = 0) -> dict:
     L0.calibrate_range(rng)
     sig_tab = calibrate_sigmas(L0, rng)
     conds = [("silent", "none"), ("running", "none"), ("running", "notch"), ("running", "ref")]
-    for ego in (-30, -20, -10, 0, 10):
+    for ego in egos:
         cfg = ActiveConfig(ego_gain_db=ego)
         L = Listener(cfg, seed); L.p_ref_1m = L0.p_ref_1m
         # reference canceller trained in flight on a beacon-free window (rotors running)
@@ -389,6 +389,8 @@ def window_study(n_win: int = 40, seed: int = 0) -> dict:
                       f"srpS {r['angle_median']['srp_sphere']:6.2f} gated {r['angle_median']['srp_sphere_gated']:6.2f} "
                       f"(out>10: srpS {100*r['outlier_10deg']['srp_sphere']:3.0f}% gated {100*r['outlier_10deg']['srp_sphere_gated']:3.0f}%) "
                       f"range {100*r['range_err_median']:4.1f}%", flush=True)
+                if save:
+                    save.write_text(json.dumps(res, indent=1, default=float))
     return res
 
 
@@ -405,10 +407,10 @@ class Policy:
 POLICIES = [
     Policy("silence windows, energy detector, fixed fusion (original)", "silent", "energy", "none", "fixed_fusion"),
     Policy("motors running, energy detector, fixed fusion (original baseline)", "running", "energy", "none", "fixed_fusion"),
-    Policy("motors running, matched filter, SRP-sphere", "running", "mf", "none", "srp_sphere_gated"),
-    Policy("motors running, matched filter + RPM notch, SRP-sphere", "running", "mf", "notch", "srp_sphere_gated"),
-    Policy("motors running, matched filter + reference canceller, SRP-sphere", "running", "mf", "ref", "srp_sphere_gated"),
-    Policy("silence windows, matched filter, SRP-sphere (revised)", "silent", "mf", "none", "srp_sphere_gated"),
+    Policy("motors running, matched filter, SRP-sphere", "running", "mf", "none", "srp_sphere"),
+    Policy("motors running, matched filter + RPM notch, SRP-sphere", "running", "mf", "notch", "srp_sphere"),
+    Policy("motors running, matched filter + reference canceller, SRP-sphere", "running", "mf", "ref", "srp_sphere"),
+    Policy("silence windows, matched filter, SRP-sphere (revised)", "silent", "mf", "none", "srp_sphere"),
 ]
 
 
@@ -530,7 +532,10 @@ def run_m2(out: Path = Path("outputs/revision")) -> dict:
     a = iso9613_alpha(np.array([3000, 4500, 6000]))
     res["absorption_db_per_m"] = a.tolist()
     print(f"  absorption at 3/4.5/6 kHz: {a.round(4)} dB/m", flush=True)
-    res["window"] = window_study()
+    res["window"] = window_study(egos=(-10, 0, 10), seed=1, save=out / "m2_window_part2.json")
+    part1 = out / "m2_window_part1.json"          # ego -30 and -20 dB, recovered from the first run's log
+    if part1.exists():
+        res["window"] = {**json.loads(part1.read_text()), **res["window"]}
     print("  -- closed loop, distributed (partly incoherent) rotor noise", flush=True)
     res["loop"] = loop_study(rotor_subsources=6)
     print("  -- closed loop, coherent point-source rotor noise (optimistic for reference cancellation)", flush=True)
