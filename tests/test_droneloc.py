@@ -60,3 +60,24 @@ def test_sound_meter_localizes_after_subtraction(trained):
     v = pos - scene.array.center
     assert angle_between_deg(m["direction"], v) < 5
     assert abs(m["range"] / np.linalg.norm(v) - 1) < 0.35
+
+
+def test_evaluate_array_end_to_end(tmp_path):
+    """The real-recording tool, exercised on a simulated sphere recording with known truth."""
+    import soundfile as sf
+    from droneloc.real_array import evaluate, write_sphere_geometry
+    rng = np.random.default_rng(3)
+    scene = Scene(scattering=True, machinery_level_db=-100, wind_level_db=30, bird_level_db=-100)
+    truth = []
+    chunks = []
+    for k, (az, el) in enumerate([(30, 20), (-120, 35), (160, 10)]):
+        a, e = np.radians(az), np.radians(el)
+        scene.trajectory = static(scene.array.center + 15 * np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)]))
+        chunks.append(render(scene, 1.0, rng=rng).mics)
+        truth.append(f"{k:.1f},{k + 1:.1f},{az},{el}")
+    x = np.hstack(chunks)
+    sf.write(tmp_path / "rec.wav", (x / np.abs(x).max() * 0.9).T, FS, subtype="FLOAT")
+    write_sphere_geometry(tmp_path / "geo.csv")
+    (tmp_path / "truth.csv").write_text("t_start,t_end,azimuth_deg,elevation_deg\n" + "\n".join(truth) + "\n")
+    s = evaluate(tmp_path / "rec.wav", tmp_path / "geo.csv", tmp_path / "truth.csv", bpf=(105, 200), steering="sphere")
+    assert s["median_error"][0] < 3

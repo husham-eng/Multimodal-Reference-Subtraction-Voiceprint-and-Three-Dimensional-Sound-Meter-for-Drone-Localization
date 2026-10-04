@@ -21,9 +21,42 @@ def main() -> None:
     r.add_argument("--n-neural", type=int, default=1200, help="simulated frames for the neural localizer")
     r.add_argument("--array-radius", type=float, default=0.08, help="sphere radius [m] (0.08 = 160 mm sensor)")
     r.add_argument("--no-plots", action="store_true")
+    e = sub.add_parser("evaluate-array", help="evaluate direction finding on a real multichannel recording")
+    e.add_argument("--wav", required=True)
+    e.add_argument("--geometry", required=True, help="CSV x,y,z per array microphone [m]")
+    e.add_argument("--truth", required=True, help="CSV t_start,t_end,azimuth_deg,elevation_deg")
+    e.add_argument("--refs", default=None, help="reference channel indices, e.g. 6,7")
+    e.add_argument("--cal", default=None, help="target-free segment t0,t1 [s] for the reference canceller")
+    e.add_argument("--band", default=None, help="lo,hi [Hz] for a beacon or broadband source")
+    e.add_argument("--bpf", default=None, help="lo,hi [Hz] blade-passing-frequency search range (harmonic comb)")
+    e.add_argument("--steering", default="free", choices=["free", "sphere"])
+    e.add_argument("--out", default="array_eval.csv")
+    c = sub.add_parser("coherence", help="best possible ego-noise cancellation from reference mics (real recording)")
+    c.add_argument("--wav", required=True)
+    c.add_argument("--array", default="0,1,2,3,4,5", help="array channel indices")
+    c.add_argument("--refs", required=True, help="reference channel indices, e.g. 6,7,8,9")
+    c.add_argument("--band", default="3000,6000")
+    g = sub.add_parser("sphere-geometry", help="write the geometry CSV of the 160 mm octahedral sensor")
+    g.add_argument("path", nargs="?", default="sphere160.csv")
     a = ap.parse_args()
     if a.cmd == "libraries":
         print(describe())
+    elif a.cmd == "evaluate-array":
+        from pathlib import Path
+        from .real_array import evaluate
+        pair = lambda v: tuple(float(x) for x in v.split(",")) if v else None  # noqa: E731
+        evaluate(Path(a.wav), Path(a.geometry), Path(a.truth),
+                 [int(i) for i in a.refs.split(",")] if a.refs else None, pair(a.cal), pair(a.band), pair(a.bpf),
+                 a.steering, out_csv=Path(a.out))
+    elif a.cmd == "coherence":
+        from pathlib import Path
+        from .real_array import multiple_coherence
+        ints = lambda v: [int(i) for i in v.split(",")]  # noqa: E731
+        multiple_coherence(Path(a.wav), ints(a.array), ints(a.refs), tuple(float(x) for x in a.band.split(",")))
+    elif a.cmd == "sphere-geometry":
+        from pathlib import Path
+        from .real_array import write_sphere_geometry
+        write_sphere_geometry(Path(a.path)); print(f"written {a.path}")
     elif a.cmd == "download":
         from .datasets import download
         download(a.dataset)
