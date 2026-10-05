@@ -1,7 +1,7 @@
 {
   "title": "Multimodal Reference Subtraction, Drone Voiceprint and Three-Dimensional Sound Meter for Drone Localization",
   "upload_type": "software",
-  "description": "Python package and simulation environment for 3D acoustic localization of drones with a six-microphone spherical array (D = 160 mm): drone sound library (synthetic rotor-noise models and public datasets), multimodal reference subtraction, drone voiceprint classification, voiceprint-guided SRP-PHAT 3D sound meter, neural localizer and Kalman tracking. Includes the project report (Revision 2).",
+  "description": "Python package for offline 3D acoustic localization of drones with a six-microphone rigid spherical array (D = 160 mm): rigid-sphere sensor model with hardware errors, reference subtraction, drone voiceprint classification, sphere-steered harmonic SRP-PHAT, Kalman tracking, and an active mode with rotor silence windows. Includes the evaluation on the real in-flight DREGON recordings, a network-blocked (offline) run with timing, the Arabic hardware guide, and the submission package for Applied Acoustics.",
   "creators": [
     {
       "name": "Saied, Husham",
@@ -18,7 +18,11 @@
     "SRP-PHAT",
     "Kalman filter",
     "acoustic guidance",
-    "battery swap"
+    "battery swap",
+    "offline processing",
+    "rigid spherical array",
+    "ego-noise",
+    "DREGON"
   ],
   "related_identifiers": [
     {
@@ -33,6 +37,11 @@
     },
     {
       "identifier": "https://github.com/karolpiczak/ESC-50",
+      "relation": "references",
+      "scheme": "url"
+    },
+    {
+      "identifier": "http://dregon.inria.fr",
       "relation": "references",
       "scheme": "url"
     }
