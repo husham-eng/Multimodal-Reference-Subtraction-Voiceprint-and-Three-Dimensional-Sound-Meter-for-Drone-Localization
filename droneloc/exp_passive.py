@@ -70,7 +70,7 @@ def summarise(rows: list[dict]) -> dict:
 
 # ----------------------------------------------------------------------------- M1
 M1_CONDITIONS = [
-    ("A", "free-field simulation, lag-domain SRP (original)", dict(), "lag"),
+    ("A", "free-field simulation, lag-domain SRP (fixed grid)", dict(), "lag"),
     ("B", "free-field simulation, phase SRP with local refinement", dict(), "free"),
     ("C", "rigid-sphere simulation, free-field steering (model mismatch)", dict(scattering=True), "free"),
     ("D", "rigid-sphere simulation, rigid-sphere steering", dict(scattering=True), "sphere"),
