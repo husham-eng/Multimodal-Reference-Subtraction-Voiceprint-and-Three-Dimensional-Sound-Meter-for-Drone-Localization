@@ -1,4 +1,4 @@
-"""Voiceprint evaluation without leakage (reviewer comment M5).
+"""Voiceprint evaluation without leakage (experiment M5).
 
 Synthetic data are generated as *recordings* (continuous realisations with
 their own unit, RPM, background and SNR) cut into 1 s segments, so that the
@@ -63,7 +63,7 @@ def cv_accuracy(X, y, groups=None, k=5, seed=0):
     return {"acc": correct / len(y), "ci": wilson(correct, len(y)), "n": len(y)}
 
 
-def run_m5(seed: int = 0, out: Path = Path("outputs/revision")) -> dict:
+def run_m5(seed: int = 0, out: Path = Path("outputs/results")) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     drones = list(DRONE_PROFILES)
     res = {}

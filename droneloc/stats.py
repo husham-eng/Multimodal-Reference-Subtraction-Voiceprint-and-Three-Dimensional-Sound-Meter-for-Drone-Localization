@@ -1,4 +1,4 @@
-"""Small statistics helpers used by the revision experiments."""
+"""Small statistics helpers used by the experiments."""
 from __future__ import annotations
 
 import numpy as np
