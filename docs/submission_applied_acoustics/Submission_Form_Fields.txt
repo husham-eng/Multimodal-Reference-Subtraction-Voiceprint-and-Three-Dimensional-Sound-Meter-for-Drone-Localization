@@ -1,0 +1,49 @@
+APPLIED ACOUSTICS - SUBMISSION FORM FIELDS (copy and paste)
+==============================================================
+
+ARTICLE TYPE: Research Paper (Full Length Article)
+
+TITLE:
+Offline voiceprint-guided three-dimensional acoustic localization of drones with a six-microphone rigid spherical array: rotor silence windows and reference subtraction
+
+ABSTRACT:
+We study three-dimensional acoustic localization of drones with a 160 mm rigid sphere carrying six microphones on its poles, in simulation and with real single-channel drone recordings propagated synthetically to the array. The simulator models rigid-sphere scattering, ISO 9613-1 absorption, distributed rotor noise, rotor spin-down and hardware errors. In an active mode the target emits a 3–6 kHz chirp; with 0.2 s rotor silence windows, matched filtering and sphere-steered SRP-PHAT, 25/30 closed-loop approaches from 80 m succeeded, against 0/30 with motors running and 8/30 with an ego-noise reference canceller; an optimistic coherent-rotor model raises the last figure to 29/30, so whether the windows are needed depends on a measurable reference coherence. In a passive mode a station locates the arriving drone from its own rotor noise: reference subtraction, a blade-passing-frequency drone-type signature and sphere-steered, harmonic-weighted SRP-PHAT gave a median direction error of 1.13° over 30 randomized approaches. Leakage-free evaluation lowered signature accuracy to 72% across real recording campaigns. On real drone-embedded recordings (DREGON, eight-microphone array, free flight at signal-to-noise ratios near −12 dB), the same steered-response-power estimator with subtraction of the average noise cross-spectra located a broadband loudspeaker within 10° in 182/217 segments (median 3.4°), whereas in-flight speech was not localized. All processing is offline: the chain was trained and run with every network connection blocked, needs no internet, cloud service or satellite positioning, and kept pace with real time on one CPU core. Validation of the spherical sensor itself is in progress.
+
+KEYWORDS (one per box):
+- Drone audition
+- Sound source localization
+- Spherical microphone array
+- SRP-PHAT
+- Ego-noise
+- Reference cancellation
+- Offline processing
+
+HIGHLIGHTS (also uploaded as a separate file):
+- Offline 3D drone localization with a six-microphone 160 mm rigid spherical array
+- Sphere-steered harmonic SRP-PHAT: 1.1° median error over 30 simulated approaches
+- Rotor silence windows: 25/30 beacon approaches vs 0/30 with motors running
+- Real in-flight array data: broadband source within 10° in 182/217 segments
+- Leakage-free tests cut drone-signature accuracy to 72% across real campaigns
+
+AUTHOR:
+Husham Saied (corresponding author)
+Prince Sultan Military College of Health Sciences, Dhahran, Saudi Arabia
+E-mail: hushamfarouk@gmail.com
+ORCID: [enter your ORCID iD]
+
+FUNDING:
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors.
+
+DECLARATION OF COMPETING INTEREST:
+The author declares no known competing financial interests or personal relationships that could appear to influence the work reported in this paper.
+
+DATA AVAILABILITY:
+Code, data download scripts, experiment and figure scripts that regenerate every result, the aggregated results (docs/revision/results_summary.json) and the per-segment DREGON results (docs/revision/dregon) are available at https://github.com/husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization (accessed 5 October 2026) and archived on Zenodo (all versions: doi 10.5281/zenodo.23122228; version 2.1.0 used in this paper: doi 10.5281/zenodo.23151340) under the MIT license [40], [41]. Public datasets are available from their sources [12], [13], [22]–[24].
+
+DECLARATION OF GENERATIVE AI:
+During the preparation of this work the author used an AI assistant (Claude, Anthropic) to help implement the simulation software and to draft and edit the manuscript. All figures were generated from the released code and data with matplotlib, except Fig. 2, which shows CAD renders by the author; no figure was produced with a generative image model. The author reviewed and edited all content and takes full responsibility for it.
+
+CREDIT AUTHOR STATEMENT:
+Husham Saied: Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data curation, Writing – original draft, Writing – review & editing, Visualization.
+
+PUBLICATION MODEL (if asked): Subscription (no article publishing charge)
