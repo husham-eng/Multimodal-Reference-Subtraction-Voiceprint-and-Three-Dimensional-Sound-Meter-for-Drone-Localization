@@ -81,3 +81,44 @@ def test_evaluate_array_end_to_end(tmp_path):
     (tmp_path / "truth.csv").write_text("t_start,t_end,azimuth_deg,elevation_deg\n" + "\n".join(truth) + "\n")
     s = evaluate(tmp_path / "rec.wav", tmp_path / "geo.csv", tmp_path / "truth.csv", bpf=(105, 200), steering="sphere")
     assert s["median_error"][0] < 3
+
+
+def test_dregon_batch(tmp_path):
+    """The DREGON command on a synthetic recording in the DREGON file layout (plane wave, moving source)."""
+    import soundfile as sf
+    from scipy.io import savemat
+    from droneloc.dregon import DREGON_MICS, run as run_dregon
+    fs, dur, c = 44100, 4.0, 343.0
+    rng = np.random.default_rng(5)
+    n = int(fs * dur)
+    t = np.arange(n) / fs
+    az = np.linspace(20, 80, n)          # source sweeps in azimuth (degrees, as in DREGON)
+    el = np.full(n, -30.0)
+    s = rng.standard_normal(n)
+    S = np.fft.rfft(s)
+    f = np.fft.rfftfreq(n, 1 / fs)
+    x = np.zeros((8, n))
+    for k in range(4):                   # four 1 s blocks, each a plane wave from its centre direction
+        sl = slice(k * fs, (k + 1) * fs)
+        a, e = np.radians(az[sl].mean()), np.radians(el[sl].mean())
+        u = np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])
+        for m in range(8):
+            x[m, sl] = np.fft.irfft(S * np.exp(2j * np.pi * f * (DREGON_MICS[m] @ u) / c), n)[sl]
+    x += 0.05 * rng.standard_normal(x.shape)
+    rec = tmp_path / "data" / "DREGON_free-flight_whitenoise_room1"
+    rec.mkdir(parents=True)
+    sf.write(rec / "DREGON_free-flight_whitenoise_room1.wav", (x / np.abs(x).max() * 0.9).T, fs)
+    t0 = 1.5e9
+    savemat(rec / "DREGON_free-flight_whitenoise_room1_audiots.mat", {"audio_timestamps": t0 + t})
+    ts = t0 + np.arange(0, dur, 0.01)
+    savemat(rec / "DREGON_free-flight_whitenoise_room1_sourcepos.mat", {"source_position": {
+        "timestamps": ts, "azimuth": np.interp(ts - t0, t, az), "elevation": np.full(ts.size, -30.0),
+        "distance": np.full(ts.size, 2.0)}})
+    motors = tmp_path / "data" / "DREGON_free-flight_nosource_room1"
+    motors.mkdir()
+    sf.write(motors / "DREGON_free-flight_nosource_room1.wav", 0.01 * rng.standard_normal((fs, 8)), fs)
+    out = run_dregon(tmp_path / "data", tmp_path / "out", segment=0.5)
+    assert out["skipped"] == ["DREGON_free-flight_nosource_room1"]
+    assert out["all"]["segments"] >= 6
+    assert out["all"]["median_error"][0] < 8
+    assert (tmp_path / "out" / "dregon_summary.json").exists()
