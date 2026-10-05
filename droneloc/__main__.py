@@ -30,6 +30,7 @@ def main() -> None:
     e.add_argument("--band", default=None, help="lo,hi [Hz] for a beacon or broadband source")
     e.add_argument("--bpf", default=None, help="lo,hi [Hz] blade-passing-frequency search range (harmonic comb)")
     e.add_argument("--steering", default="free", choices=["free", "sphere"])
+    e.add_argument("--noise", default=None, help="target-free WAV for noise cross-spectra subtraction")
     e.add_argument("--out", default="array_eval.csv")
     c = sub.add_parser("coherence", help="best possible ego-noise cancellation from reference mics (real recording)")
     c.add_argument("--wav", required=True)
@@ -42,6 +43,8 @@ def main() -> None:
     dr.add_argument("--segment", type=float, default=0.5, help="segment length [s]")
     dr.add_argument("--band", default=None, help="lo,hi [Hz]; default by source type in the file name")
     dr.add_argument("--units", default="auto", choices=["auto", "deg", "rad"], help="angle units in source_position")
+    dr.add_argument("--noise", default=None,
+                    help="noise-only in-flight WAV (no source); adds a run with noise cross-spectra subtraction")
     g = sub.add_parser("sphere-geometry", help="write the geometry CSV of the 160 mm octahedral sensor")
     g.add_argument("path", nargs="?", default="sphere160.csv")
     a = ap.parse_args()
@@ -53,7 +56,7 @@ def main() -> None:
         pair = lambda v: tuple(float(x) for x in v.split(",")) if v else None  # noqa: E731
         evaluate(Path(a.wav), Path(a.geometry), Path(a.truth),
                  [int(i) for i in a.refs.split(",")] if a.refs else None, pair(a.cal), pair(a.band), pair(a.bpf),
-                 a.steering, out_csv=Path(a.out))
+                 a.steering, out_csv=Path(a.out), noise_wav=Path(a.noise) if a.noise else None)
     elif a.cmd == "coherence":
         from pathlib import Path
         from .real_array import multiple_coherence
@@ -63,7 +66,8 @@ def main() -> None:
         from pathlib import Path
         from .dregon import run as run_dregon
         run_dregon(Path(a.data), Path(a.out), a.segment,
-                   tuple(float(x) for x in a.band.split(",")) if a.band else None, a.units)
+                   tuple(float(x) for x in a.band.split(",")) if a.band else None, a.units,
+                   Path(a.noise) if a.noise else None)
     elif a.cmd == "sphere-geometry":
         from pathlib import Path
         from .real_array import write_sphere_geometry

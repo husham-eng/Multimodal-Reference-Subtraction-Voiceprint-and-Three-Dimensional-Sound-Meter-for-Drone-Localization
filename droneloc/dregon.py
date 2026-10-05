@@ -15,6 +15,10 @@ of the loudspeaker in the UAV frame, from the Vicon system). It then
    DREGON microphones are not on a sphere), and
 4. writes per-segment results, a per-recording summary and ``dregon_summary.json``.
 
+With ``--noise`` (a noise-only free-flight recording, as used for the Wiener filter
+of the DREGON paper) every recording is also evaluated with the noise
+cross-spectra subtracted before PHAT weighting.
+
 Recordings without ``source_position`` (motors only) are listed and skipped.
 Nothing is tuned on the data: the band is fixed by the source type in the file
 name (speech 300-4000 Hz, broadband sources 300-7000 Hz) unless --band is given.
@@ -176,14 +180,33 @@ def _convention_check(rows: list[dict]) -> list[dict]:
     return sorted(res, key=lambda r: r["median_error"])
 
 
-def run(data: Path, out: Path, segment: float = 0.5, band: tuple | None = None, units: str = "auto") -> dict:
+def _pool(rows: list[dict]) -> dict:
+    errs = np.array([r["error_deg"] for r in rows])
+    k10, k20 = int(np.sum(errs <= 10)), int(np.sum(errs <= 20))
+    return {"segments": len(errs), "median_error": bootstrap_ci(errs),
+            "within_10deg": [k10, len(errs), *wilson(k10, len(errs))],
+            "within_20deg": [k20, len(errs), *wilson(k20, len(errs))]}
+
+
+def _line(tag: str, a: dict) -> str:
+    return (f"{tag}: {a['segments']} segments | median error {a['median_error'][0]:.1f} deg "
+            f"[{a['median_error'][1]:.1f}, {a['median_error'][2]:.1f}] | within 10 deg "
+            f"{a['within_10deg'][0]}/{a['within_10deg'][1]} | within 20 deg {a['within_20deg'][0]}/{a['within_20deg'][1]}")
+
+
+def run(data: Path, out: Path, segment: float = 0.5, band: tuple | None = None, units: str = "auto",
+        noise: Path | None = None) -> dict:
+    """Evaluate every DREGON recording under `data`. With `noise` (a noise-only in-flight WAV, as the
+    7 s free-flight noise recording used for the Wiener filter in the DREGON paper), each recording is
+    evaluated a second time with the noise cross-spectra subtracted before PHAT weighting."""
     out.mkdir(parents=True, exist_ok=True)
     geom = out / "dregon_mics.csv"
     write_geometry(geom)
-    wavs = sorted(p for p in data.rglob("*.wav"))
+    wavs = sorted(p for p in data.rglob("*.wav") if not (noise and p.resolve() == noise.resolve()))
     if not wavs:
         raise SystemExit(f"no .wav files under {data}")
-    per, skipped, all_rows = {}, [], []
+    variants = {"plain": None, **({"noise_sub": noise} if noise else {})}
+    per, skipped, pooled = {}, [], {v: [] for v in variants}
     for wav in wavs:
         name = wav.stem
         truth = out / f"{name}_truth.csv"
@@ -197,28 +220,27 @@ def run(data: Path, out: Path, segment: float = 0.5, band: tuple | None = None, 
             print(f"skip {name}: {meta['channels']} channels, expected 8")
             continue
         b = band or _band_for(name)
-        print(f"{name}: {meta['segments']} segments, band {b[0]:.0f}-{b[1]:.0f} Hz")
-        s = evaluate(wav, geom, truth, band=b, steering="free", out_csv=out / f"{name}_result.csv")
-        rows = s.pop("rows")
-        all_rows += rows
-        per[name] = {**meta, "band": b, **s}
-    if not all_rows:
+        per[name] = {**meta, "band": b}
+        for v, nz in variants.items():
+            print(f"{name} [{v}]: {meta['segments']} segments, band {b[0]:.0f}-{b[1]:.0f} Hz")
+            suffix = "" if v == "plain" else "_" + v
+            s = evaluate(wav, geom, truth, band=b, steering="free", out_csv=out / f"{name}_result{suffix}.csv",
+                         noise_wav=nz)
+            pooled[v] += s.pop("rows")
+            per[name][v] = s
+    if not pooled["plain"]:
         raise SystemExit("no recording with ground truth was evaluated")
-    errs = np.array([r["error_deg"] for r in all_rows])
-    summary = {
-        "recordings": per, "skipped": skipped, "segment_s": segment,
-        "all": {"segments": len(errs), "median_error": bootstrap_ci(errs),
-                "within_10deg": [int(np.sum(errs <= 10)), len(errs), *wilson(int(np.sum(errs <= 10)), len(errs))],
-                "within_20deg": [int(np.sum(errs <= 20)), len(errs), *wilson(int(np.sum(errs <= 20)), len(errs))]},
-        "frame_convention_check": _convention_check(all_rows)[:4],
-    }
+    summary = {"recordings": per, "skipped": skipped, "segment_s": segment,
+               "noise_recording": noise.name if noise else None,
+               "all": {v: _pool(r) for v, r in pooled.items()}}
+    best_v = min(summary["all"], key=lambda v: summary["all"][v]["median_error"][0])
+    summary["frame_convention_check"] = {"variant": best_v, "top": _convention_check(pooled[best_v])[:4]}
     (out / "dregon_summary.json").write_text(json.dumps(summary, indent=1, default=float))
-    a = summary["all"]
-    print(f"\nALL: {a['segments']} segments | median error {a['median_error'][0]:.1f} deg "
-          f"[{a['median_error'][1]:.1f}, {a['median_error'][2]:.1f}] | within 10 deg "
-          f"{a['within_10deg'][0]}/{a['within_10deg'][1]} | within 20 deg {a['within_20deg'][0]}/{a['within_20deg'][1]}")
-    best = summary["frame_convention_check"][0]
-    print(f"frame check (report only): best convention {best['azimuth']} {best['elevation']} -> "
+    print()
+    for v in variants:
+        print(_line(f"ALL [{v}]", summary["all"][v]))
+    best = summary["frame_convention_check"]["top"][0]
+    print(f"frame check on [{best_v}] (report only): best convention {best['azimuth']} {best['elevation']} -> "
           f"median {best['median_error']:.1f} deg")
-    print(f"results written to {out}/ (send dregon_summary.json and the *_result.csv files)")
+    print(f"results written to {out}/ (send dregon_summary.json and the *_result*.csv files)")
     return summary
