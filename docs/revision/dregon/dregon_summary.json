@@ -1,0 +1,294 @@
+{
+ "recordings": {
+  "DREGON_silent-flight_whitenoise-low_room1": {
+   "segments": 139,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -125.19780903470078,
+    6.178039010746488
+   ],
+   "elevation_range_raw": [
+    -32.478751444204526,
+    26.412986169328025
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    7000.0
+   ],
+   "plain": {
+    "segments": 139,
+    "median_error": [
+     2.687489019842631,
+     2.6252716200030877,
+     3.172871710457227
+    ],
+    "within_10deg": [
+     0.8380324011542263,
+     0.9390521456444653
+    ],
+    "frac_within_10deg": 0.8992805755395683
+   },
+   "noise_sub": {
+    "segments": 139,
+    "median_error": [
+     3.205031732253981,
+     2.456915704964933,
+     3.797931933489153
+    ],
+    "within_10deg": [
+     0.8295776275783517,
+     0.9335053958545978
+    ],
+    "frac_within_10deg": 0.8920863309352518
+   }
+  },
+  "DREGON_free-flight_speech-high_room1": {
+   "segments": 94,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -179.96026658641892,
+    179.9819243683553
+   ],
+   "elevation_range_raw": [
+    -68.08654429122348,
+    17.3610504524931
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    4000.0
+   ],
+   "plain": {
+    "segments": 94,
+    "median_error": [
+     111.06044190998898,
+     95.89363269293462,
+     118.22789762682073
+    ],
+    "within_10deg": [
+     0.02293141052501088,
+     0.11853806667078312
+    ],
+    "frac_within_10deg": 0.05319148936170213
+   },
+   "noise_sub": {
+    "segments": 94,
+    "median_error": [
+     57.41471823218032,
+     39.0966597042397,
+     73.42312617770136
+    ],
+    "within_10deg": [
+     0.12470043241202647,
+     0.2825046827945932
+    ],
+    "frac_within_10deg": 0.19148936170212766
+   }
+  },
+  "DREGON_free-flight_speech-low_room1": {
+   "segments": 111,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -179.6076498296388,
+    179.64061062352732
+   ],
+   "elevation_range_raw": [
+    -81.43309884018718,
+    19.418597841609905
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    4000.0
+   ],
+   "plain": {
+    "segments": 111,
+    "median_error": [
+     101.78107891652955,
+     82.22193277494635,
+     112.88297985268962
+    ],
+    "within_10deg": [
+     0.03088026451475212,
+     0.12447807253384349
+    ],
+    "frac_within_10deg": 0.06306306306306306
+   },
+   "noise_sub": {
+    "segments": 111,
+    "median_error": [
+     47.14641820017475,
+     38.80785304688866,
+     68.39146459479875
+    ],
+    "within_10deg": [
+     0.03696964141610903,
+     0.1358039876521032
+    ],
+    "frac_within_10deg": 0.07207207207207207
+   }
+  },
+  "DREGON_free-flight_whitenoise-high_room1": {
+   "segments": 105,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -179.96920261041532,
+    179.94253296781108
+   ],
+   "elevation_range_raw": [
+    -81.20743911276053,
+    20.16328753383515
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    7000.0
+   ],
+   "plain": {
+    "segments": 105,
+    "median_error": [
+     3.5358684415462323,
+     2.9421292214351182,
+     3.945084946934845
+    ],
+    "within_10deg": [
+     0.7240221679553136,
+     0.8731759621714026
+    ],
+    "frac_within_10deg": 0.8095238095238095
+   },
+   "noise_sub": {
+    "segments": 105,
+    "median_error": [
+     2.9975348497623937,
+     2.7340228538796167,
+     3.4396683429521437
+    ],
+    "within_10deg": [
+     0.9193423526396465,
+     0.9902363378610444
+    ],
+    "frac_within_10deg": 0.9714285714285714
+   }
+  },
+  "DREGON_free-flight_whitenoise-low_room1": {
+   "segments": 112,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -81.82606003087349,
+    88.26535422192046
+   ],
+   "elevation_range_raw": [
+    -81.43500756386783,
+    17.342666873994045
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    7000.0
+   ],
+   "plain": {
+    "segments": 112,
+    "median_error": [
+     74.5414978537103,
+     62.489783927247444,
+     79.47833782845882
+    ],
+    "within_10deg": [
+     0.21024717263298542,
+     0.3753939096725075
+    ],
+    "frac_within_10deg": 0.2857142857142857
+   },
+   "noise_sub": {
+    "segments": 112,
+    "median_error": [
+     3.8556723284630845,
+     3.3792827422701097,
+     4.892350119525034
+    ],
+    "within_10deg": [
+     0.6246060903274925,
+     0.7897528273670146
+    ],
+    "frac_within_10deg": 0.7142857142857143
+   }
+  }
+ },
+ "skipped": [],
+ "segment_s": 0.5,
+ "noise_recording": "DREGON_free-flight_nosource_room1.wav",
+ "all": {
+  "plain": {
+   "segments": 561,
+   "median_error": [
+    50.651807504207376,
+    28.958955643782947,
+    64.72319523562433
+   ],
+   "within_10deg": [
+    254,
+    561,
+    0.41203267432242524,
+    0.49413570987590577
+   ],
+   "within_20deg": [
+    256,
+    561,
+    0.4155468339558333,
+    0.49770318162375565
+   ]
+  },
+  "noise_sub": {
+   "segments": 561,
+   "median_error": [
+    5.458844962819685,
+    4.758956448211718,
+    6.848285217369935
+   ],
+   "within_10deg": [
+    332,
+    561,
+    0.5506374577957627,
+    0.6317145502716317
+   ],
+   "within_20deg": [
+    361,
+    561,
+    0.6030056520925909,
+    0.6820300110030452
+   ]
+  }
+ },
+ "frame_convention_check": {
+  "variant": "noise_sub",
+  "top": [
+   {
+    "azimuth": "+az",
+    "elevation": "+el",
+    "median_error": 5.458844962819685
+   },
+   {
+    "azimuth": "+az",
+    "elevation": "-el",
+    "median_error": 43.236380360020114
+   },
+   {
+    "azimuth": "-az+180",
+    "elevation": "+el",
+    "median_error": 68.32488259458565
+   },
+   {
+    "azimuth": "-az+180",
+    "elevation": "-el",
+    "median_error": 76.8829331559271
+   }
+  ]
+ }
+}
