@@ -42,7 +42,7 @@ def _trajectory(path, rec, rows, center):
            zlabel="z [m]", title="Drone homing: true vs. estimated 3D position")
     ax.legend(loc="upper left", fontsize=8)
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 
@@ -67,7 +67,7 @@ def _errors(path, rows, center):
         a.grid(alpha=0.3)
     axs[0].legend(fontsize=8, ncol=4)
     fig.tight_layout()
-    fig.savefig(path, dpi=120)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 
@@ -85,7 +85,7 @@ def _spectrograms(path, rec, clean, fs, profile):
         axs[2].axhline(k * profile.bpf_hz, color="c", lw=0.5, ls="--")
     axs[2].set_xlabel("time [s]")
     fig.tight_layout()
-    fig.savefig(path, dpi=110)
+    fig.savefig(path, dpi=300)
     plt.close(fig)
 
 

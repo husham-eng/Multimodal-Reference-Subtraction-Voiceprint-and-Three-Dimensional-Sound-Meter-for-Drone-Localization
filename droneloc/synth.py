@@ -25,14 +25,14 @@ def smooth_noise(n: int, fs: int, rng: np.random.Generator, cutoff_hz: float) ->
 
 def synthesize_drone(profile: DroneProfile, duration: float, fs: int = 16000,
                      rng: np.random.Generator | None = None,
-                     throttle: np.ndarray | None = None) -> np.ndarray:
+                     throttle: np.ndarray | None = None, unit: int | None = None) -> np.ndarray:
     """Rotor noise: blade-passing harmonics + shaft imbalance + motor whine + turbulence.
 
     ``throttle`` is an optional per-sample RPM multiplier (1.0 = hover).
     """
     rng = rng or np.random.default_rng()
     n = int(round(duration * fs))
-    tim = profile.timbre()
+    tim = profile.timbre(unit)
     thr = np.ones(n) if throttle is None else np.asarray(throttle, float)[:n]
     tonal = np.zeros(n)
     whine = np.zeros(n)

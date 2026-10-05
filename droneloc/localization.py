@@ -43,11 +43,29 @@ class GccPhat:
         self.N = n_fft * interp
         self.max_lag = int(np.ceil(array.max_tdoa * fs * interp)) + 2
 
-    def cross_spectra(self, frame: np.ndarray, f0: float | None) -> np.ndarray:
+    def noise_csd(self, noise: np.ndarray) -> np.ndarray:
+        """Average cross-spectra of a target-free recording, shape (P, F), for subtraction."""
+        X = stft(noise, self.n_fft, self.hop)
+        i, j = self.pairs.T
+        return np.mean(X[i] * X[j].conj(), axis=-1)
+
+    def band_power(self, frame: np.ndarray, lo: float, hi: float) -> float:
+        """Mean auto-spectral power of all channels between lo and hi [Hz]."""
+        X = stft(frame, self.n_fft, self.hop)
+        sel = (self.freqs >= lo) & (self.freqs <= hi)
+        return float(np.mean(np.abs(X[:, sel]) ** 2))
+
+    def cross_spectra(self, frame: np.ndarray, f0: float | None, band: tuple | None = None,
+                      noise: np.ndarray | None = None, noise_scale: float = 1.0) -> np.ndarray:
         X = stft(frame, self.n_fft, self.hop)
         i, j = self.pairs.T
         G = np.mean(X[i] * X[j].conj(), axis=-1)
-        w = harmonic_weights(self.freqs, f0, min(F_MAX, self.fs / 2))
+        if noise is not None:  # noise cross-spectral density subtraction before PHAT
+            G = G - noise_scale * noise
+        if band is not None:
+            w = ((self.freqs >= band[0]) & (self.freqs <= band[1])).astype(float)
+        else:
+            w = harmonic_weights(self.freqs, f0, min(F_MAX, self.fs / 2))
         return G / (np.abs(G) + 1e-30) * w
 
     def correlations(self, G: np.ndarray) -> np.ndarray:
@@ -91,18 +109,100 @@ class SRPPHAT:
         return u / np.linalg.norm(u), float(p[b] / len(cc))
 
 
-class SoundMeter3D:
-    """Direction (SRP-PHAT) + range (level drop vs. the voiceprint's 1 m level)."""
+def _local_cap(u: np.ndarray, max_deg: float, n: int = 400) -> np.ndarray:
+    """Quasi-uniform directions inside a spherical cap around u."""
+    from .dsp import fibonacci_sphere
+    pts = fibonacci_sphere(int(n * 2 / (1 - np.cos(np.radians(max_deg)))))
+    pts = pts[pts[:, 2] >= np.cos(np.radians(max_deg))]          # cap around +z
+    z = np.array([0, 0, 1.0])
+    v = np.cross(z, u); s_, c_ = np.linalg.norm(v), z @ u
+    if s_ < 1e-9:
+        return pts if c_ > 0 else -pts
+    k = v / s_
+    K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    Rm = np.eye(3) + s_ * K + (1 - c_) * K @ K                    # rotation z -> u
+    return pts @ Rm.T
 
-    def __init__(self, array: MicArray, fs: int, level_1m_db: float, **gcc_kw):
+
+class PhaseSRP:
+    """Frequency-domain SRP-PHAT with free-field or rigid-sphere steering.
+
+    SRP(u) = sum_{i<j} sum_f W(f) Re{ G_ij(f)/|G_ij(f)| * conj(Phi_i(f,u)) Phi_j(f,u) }
+    where Phi_m is the unit-modulus phase of the microphone's response to a
+    plane wave from u (free field: exp(j 2 pi f p_m.u / c); sphere: rigid-sphere
+    Rayleigh series). A coarse grid is refined on a fine local cap, so the
+    result is not limited by the grid spacing.
+    """
+
+    def __init__(self, gcc: GccPhat, model: str = "free", n_dirs: int = 3000,
+                 min_elevation_deg: float = -30.0, refine_deg: float = 8.0,
+                 fmin: float = 0.0, fmax: float = F_MAX):
+        self.gcc, self.model, self.refine_deg = gcc, model, refine_deg
+        self.fmask = (gcc.freqs > fmin) & (gcc.freqs <= fmax)
+        self.f = gcc.freqs[self.fmask]
+        self.dirs = fibonacci_sphere(n_dirs, min_elevation_deg)
+        self.phi = self._phases(self.dirs)
+        if model == "sphere":
+            from .sphere import rigid_sphere_response
+            self._cos_grid = np.linspace(-1, 1, 721)
+            self._table = rigid_sphere_response(self.f, self._radius(), self._cos_grid)
+
+    def _radius(self) -> float:
+        return float(np.linalg.norm(self.gcc.array.positions, axis=1).mean())
+
+    def _phases(self, dirs: np.ndarray) -> np.ndarray:
+        pos = self.gcc.array.positions
+        if self.model == "free":
+            ph = np.exp(2j * np.pi * self.f[None, None, :] * (pos @ dirs.T)[..., None] / SPEED_OF_SOUND)
+            return ph.astype(np.complex64)
+        from .sphere import rigid_sphere_response
+        normals = pos / np.linalg.norm(pos, axis=1, keepdims=True)
+        cos = np.clip(normals @ dirs.T, -1, 1)
+        H = rigid_sphere_response(self.f, self._radius(), cos.ravel()).reshape(cos.shape + (self.f.size,))
+        return (H / np.abs(H)).astype(np.complex64)
+
+    def _power(self, Gw: np.ndarray, phi: np.ndarray) -> np.ndarray:
+        out = np.zeros(phi.shape[1])
+        for p, (i, j) in enumerate(self.gcc.pairs):
+            out += np.real(np.einsum("f,df,df->d", Gw[p], np.conj(phi[i]), phi[j]))
+        return out
+
+    def locate(self, G: np.ndarray, prior: np.ndarray | None = None,
+               prior_deg: float = 180.0) -> tuple[np.ndarray, float]:
+        """G: PHAT-weighted (and comb-weighted) cross-spectra from GccPhat.cross_spectra.
+
+        With ``prior`` (a unit vector, e.g. the intensity estimate) the peak is
+        searched only within ``prior_deg`` of it, which removes the spurious
+        far-away peaks that dominate SRP outliers at low SNR."""
+        Gw = G[:, self.fmask].astype(np.complex64)
+        p = self._power(Gw, self.phi)
+        if prior is not None:
+            p = np.where(self.dirs @ prior >= np.cos(np.radians(prior_deg)), p, -np.inf)
+        b = int(np.argmax(p))
+        cap = _local_cap(self.dirs[b], self.refine_deg)
+        pc = self._power(Gw, self._phases(cap))
+        k = int(np.argmax(pc))
+        return cap[k], float(pc[k] / len(G))
+
+
+class SoundMeter3D:
+    """Direction (SRP-PHAT) + range (level drop vs. the voiceprint's 1 m level).
+
+    ``steering`` selects the direction model: "lag" (time-domain GCC lookup,
+    free field), "free" (frequency-domain, free field) or "sphere" (rigid-sphere
+    diffraction model of the 160 mm sensor).
+    """
+
+    def __init__(self, array: MicArray, fs: int, level_1m_db: float, steering: str = "lag", **gcc_kw):
         self.gcc = GccPhat(array, fs, **gcc_kw)
-        self.srp = SRPPHAT(self.gcc)
+        self.steering = steering
+        self.srp = SRPPHAT(self.gcc) if steering == "lag" else PhaseSRP(self.gcc, steering)
         self.fs, self.level_1m_db = fs, level_1m_db
 
     def measure(self, frame: np.ndarray, f0: float | None) -> dict:
         G = self.gcc.cross_spectra(frame, f0)
         cc = self.gcc.correlations(G)
-        u, peak = self.srp.locate(cc)
+        u, peak = self.srp.locate(cc) if self.steering == "lag" else self.srp.locate(G)
         level = float(np.mean(harmonic_level_db(frame, self.fs, f0)))
         r = 10 ** ((self.level_1m_db - level) / 20)
         return {"direction": u, "range": r, "position": self.gcc.array.center + u * r,
