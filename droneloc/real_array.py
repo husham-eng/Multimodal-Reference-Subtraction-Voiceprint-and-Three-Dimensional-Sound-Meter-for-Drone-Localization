@@ -73,7 +73,11 @@ def _read(wav: Path, fs_proc: int) -> np.ndarray:
 
 def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = None, cal: tuple | None = None,
              band: tuple | None = None, bpf: tuple | None = None, steering: str = "free", fs_proc: int = 16000,
-             out_csv: Path | None = None, noise_wav: Path | None = None) -> dict:
+             out_csv: Path | None = None, noise_wav: Path | None = None, noise_adapt: bool = False,
+             adapt_band: tuple = (60.0, 280.0)) -> dict:
+    """noise_adapt: scale the subtracted noise cross-spectra in each segment by
+    min(1, P_segment / P_noise) measured in `adapt_band` (rotor harmonics, below the
+    evaluation band), so that nothing is subtracted while the motors are off."""
     x = _read(wav, fs_proc)
     pos = load_geometry(geometry)
     M = len(pos)
@@ -90,7 +94,10 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
     fmin = band[0] if band else 0.0
     gcc = GccPhat(arr, fs_proc, n_fft=1024, hop=256)
     srp = PhaseSRP(gcc, steering, n_dirs=4000, min_elevation_deg=-90, fmin=fmin, fmax=fmax)
-    noise = gcc.noise_csd(_read(noise_wav, fs_proc)[:M]) if noise_wav else None
+    noise, p_noise = None, None
+    if noise_wav:
+        nx = _read(noise_wav, fs_proc)[:M]
+        noise, p_noise = gcc.noise_csd(nx), gcc.band_power(nx, *adapt_band)
     rows = []
     for seg in load_truth(truth):
         a, b = int(seg["t_start"] * fs_proc), int(seg["t_end"] * fs_proc)
@@ -98,12 +105,16 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
         f0 = None
         if bpf:
             f0, _ = estimate_bpf(welch_psd(frame[0], 4096, 1024), fs_proc, *bpf)
-        G = gcc.cross_spectra(frame, f0, band=band if not bpf else None, noise=noise)
+        scale = 1.0
+        if noise is not None and noise_adapt:
+            scale = float(np.clip(gcc.band_power(frame, *adapt_band) / p_noise, 0.0, 1.0))
+        G = gcc.cross_spectra(frame, f0, band=band if not bpf else None, noise=noise, noise_scale=scale)
         u, _ = srp.locate(G)
         truth_u = unit(seg["azimuth_deg"], seg["elevation_deg"])
         err = float(angle_between_deg(u, truth_u))
         az = float(np.degrees(np.arctan2(u[1], u[0]))); el = float(np.degrees(np.arcsin(np.clip(u[2], -1, 1))))
-        rows.append({**seg, "est_azimuth_deg": az, "est_elevation_deg": el, "error_deg": err, "bpf_hz": f0 or ""})
+        rows.append({**seg, "est_azimuth_deg": az, "est_elevation_deg": el, "error_deg": err, "bpf_hz": f0 or "",
+                     "noise_scale": scale if noise is not None else ""})
     errs = [r["error_deg"] for r in rows]
     summary = {"segments": len(rows), "median_error": bootstrap_ci(errs),
                "within_10deg": wilson(int(np.sum(np.array(errs) <= 10)), len(errs)),
