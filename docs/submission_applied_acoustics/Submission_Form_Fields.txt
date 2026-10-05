@@ -15,7 +15,6 @@ KEYWORDS (one per box):
 - Spherical microphone array
 - SRP-PHAT
 - Ego-noise
-- Reference cancellation
 - Offline processing
 
 HIGHLIGHTS (also uploaded as a separate file):
