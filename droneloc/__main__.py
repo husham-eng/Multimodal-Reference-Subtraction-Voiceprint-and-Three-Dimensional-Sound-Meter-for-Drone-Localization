@@ -1,4 +1,4 @@
-"""Command line: python -m droneloc {libraries,download,run}."""
+"""Command line: python -m droneloc {libraries,download,run,evaluate-array,dregon,coherence,sphere-geometry}."""
 import argparse
 
 from .catalog import DATASETS, DRONE_PROFILES, describe
@@ -36,6 +36,12 @@ def main() -> None:
     c.add_argument("--array", default="0,1,2,3,4,5", help="array channel indices")
     c.add_argument("--refs", required=True, help="reference channel indices, e.g. 6,7,8,9")
     c.add_argument("--band", default="3000,6000")
+    dr = sub.add_parser("dregon", help="evaluate the direction estimator on unzipped DREGON recordings")
+    dr.add_argument("--data", required=True, help="folder with the DREGON .wav and .mat files")
+    dr.add_argument("--out", default="outputs/dregon")
+    dr.add_argument("--segment", type=float, default=0.5, help="segment length [s]")
+    dr.add_argument("--band", default=None, help="lo,hi [Hz]; default by source type in the file name")
+    dr.add_argument("--units", default="auto", choices=["auto", "deg", "rad"], help="angle units in source_position")
     g = sub.add_parser("sphere-geometry", help="write the geometry CSV of the 160 mm octahedral sensor")
     g.add_argument("path", nargs="?", default="sphere160.csv")
     a = ap.parse_args()
@@ -53,6 +59,11 @@ def main() -> None:
         from .real_array import multiple_coherence
         ints = lambda v: [int(i) for i in v.split(",")]  # noqa: E731
         multiple_coherence(Path(a.wav), ints(a.array), ints(a.refs), tuple(float(x) for x in a.band.split(",")))
+    elif a.cmd == "dregon":
+        from pathlib import Path
+        from .dregon import run as run_dregon
+        run_dregon(Path(a.data), Path(a.out), a.segment,
+                   tuple(float(x) for x in a.band.split(",")) if a.band else None, a.units)
     elif a.cmd == "sphere-geometry":
         from pathlib import Path
         from .real_array import write_sphere_geometry

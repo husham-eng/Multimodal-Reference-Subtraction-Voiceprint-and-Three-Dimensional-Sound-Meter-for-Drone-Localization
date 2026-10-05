@@ -106,7 +106,7 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
     print(f"segments: {len(rows)} | median error {summary['median_error'][0]:.2f} deg "
           f"[{summary['median_error'][1]:.2f}, {summary['median_error'][2]:.2f}] | "
           f"within 10 deg: {100 * summary['frac_within_10deg']:.0f}%")
-    return summary
+    return {**summary, "rows": rows}
 
 
 def write_sphere_geometry(path: Path, radius: float = 0.08) -> None:
