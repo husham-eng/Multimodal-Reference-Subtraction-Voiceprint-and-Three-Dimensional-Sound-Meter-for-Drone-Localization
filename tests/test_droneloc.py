@@ -120,7 +120,7 @@ def test_dregon_batch(tmp_path):
     out = run_dregon(tmp_path / "data", tmp_path / "out", segment=0.5,
                      noise=motors / "DREGON_free-flight_nosource_room1.wav")
     assert out["skipped"] == []  # the noise recording is not evaluated as a target recording
-    for v in ("plain", "noise_sub"):
+    for v in ("plain", "noise_sub", "noise_adapt"):
         assert out["all"][v]["segments"] >= 6
         assert out["all"][v]["median_error"][0] < 8
     out = run_dregon(tmp_path / "data", tmp_path / "out2", segment=0.5)

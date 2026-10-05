@@ -49,13 +49,19 @@ class GccPhat:
         i, j = self.pairs.T
         return np.mean(X[i] * X[j].conj(), axis=-1)
 
+    def band_power(self, frame: np.ndarray, lo: float, hi: float) -> float:
+        """Mean auto-spectral power of all channels between lo and hi [Hz]."""
+        X = stft(frame, self.n_fft, self.hop)
+        sel = (self.freqs >= lo) & (self.freqs <= hi)
+        return float(np.mean(np.abs(X[:, sel]) ** 2))
+
     def cross_spectra(self, frame: np.ndarray, f0: float | None, band: tuple | None = None,
-                      noise: np.ndarray | None = None) -> np.ndarray:
+                      noise: np.ndarray | None = None, noise_scale: float = 1.0) -> np.ndarray:
         X = stft(frame, self.n_fft, self.hop)
         i, j = self.pairs.T
         G = np.mean(X[i] * X[j].conj(), axis=-1)
         if noise is not None:  # noise cross-spectral density subtraction before PHAT
-            G = G - noise
+            G = G - noise_scale * noise
         if band is not None:
             w = ((self.freqs >= band[0]) & (self.freqs <= band[1])).astype(float)
         else:

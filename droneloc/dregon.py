@@ -205,7 +205,10 @@ def run(data: Path, out: Path, segment: float = 0.5, band: tuple | None = None, 
     wavs = sorted(p for p in data.rglob("*.wav") if not (noise and p.resolve() == noise.resolve()))
     if not wavs:
         raise SystemExit(f"no .wav files under {data}")
-    variants = {"plain": None, **({"noise_sub": noise} if noise else {})}
+    # plain: no pre-processing; noise_sub: fixed noise cross-spectra subtraction (as the
+    # DREGON paper's Wiener filter); noise_adapt: the same, scaled per segment by the
+    # rotor-band power ratio so that nothing is subtracted while the motors are off.
+    variants = {"plain": (None, False), **({"noise_sub": (noise, False), "noise_adapt": (noise, True)} if noise else {})}
     per, skipped, pooled = {}, [], {v: [] for v in variants}
     for wav in wavs:
         name = wav.stem
@@ -221,11 +224,11 @@ def run(data: Path, out: Path, segment: float = 0.5, band: tuple | None = None, 
             continue
         b = band or _band_for(name)
         per[name] = {**meta, "band": b}
-        for v, nz in variants.items():
+        for v, (nz, adapt) in variants.items():
             print(f"{name} [{v}]: {meta['segments']} segments, band {b[0]:.0f}-{b[1]:.0f} Hz")
             suffix = "" if v == "plain" else "_" + v
             s = evaluate(wav, geom, truth, band=b, steering="free", out_csv=out / f"{name}_result{suffix}.csv",
-                         noise_wav=nz)
+                         noise_wav=nz, noise_adapt=adapt)
             pooled[v] += s.pop("rows")
             per[name][v] = s
     if not pooled["plain"]:
