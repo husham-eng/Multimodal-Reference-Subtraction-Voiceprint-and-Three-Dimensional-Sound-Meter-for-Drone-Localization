@@ -79,7 +79,7 @@ python -m pytest tests
 ![spectrograms](docs/spectrograms.png)
 ![errors](docs/errors.png)
 
-## المراجعة العلمية: ما الذي أُضيف (الإصدار القادم)
+## المراجعة العلمية: ما الذي أُضيف (الإصدار 2.1.0)
 
 استجابةً لتقرير المراجعة أُضيفت تجارب وأدوات جديدة (التفاصيل في `experiments/` و`outputs/revision/` بعد التشغيل):
 
@@ -92,7 +92,10 @@ python -m pytest tests
 | تجارب الاستقبال السلبي (M1، M4، M6) | `droneloc/exp_passive.py` |
 | تقييم البصمة بلا تسرب (حسب التسجيل/الجلسة/الحملة) | `droneloc/exp_voiceprint.py` |
 | أدوات البيانات الحقيقية: `evaluate-array`، `coherence`، `sphere-geometry`، وسكربت التسجيل | `droneloc/real_array.py`, `experiments/record.py` |
-| دليل بناء العتاد واختباره (بالعربي) | [`docs/Hardware_Guide_AR.docx`](docs/Hardware_Guide_AR.docx) |
+| تقييم على تسجيلات DREGON الحقيقية بأمر واحد (`python -m droneloc dregon --data ... --noise ...`)، مع طرح ضجيج المراوح | `droneloc/dregon.py`, `docs/revision/dregon/` |
+| العمل دون إنترنت: حجب الشبكة وقياس زمن المعالجة | `droneloc/offline.py`, `docs/revision/offline_benchmark.json` |
+| دليل بناء العتاد واختباره (بالعربي)، ومنه وحدة IMU وبوصلة ثلاثية الأبعاد للمرحلة القادمة | [`docs/Hardware_Guide_AR.docx`](docs/Hardware_Guide_AR.docx) |
+| ملفات التقديم إلى Applied Acoustics | `docs/submission_applied_acoustics/` |
 
 لإعادة إنتاج تجارب المراجعة:
 ```
