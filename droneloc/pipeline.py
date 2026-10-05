@@ -54,7 +54,8 @@ def _train_neural(scene: Scene, canceller, vp: VoiceprintModel, n: int, rng, fra
 
 def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 40.0,
         seed: int = 0, out_dir: str | Path = "outputs", n_voiceprint: int = 120,
-        n_neural: int = 1200, plots: bool = True, array_radius: float = 0.08) -> dict:
+        n_neural: int = 1200, plots: bool = True, array_radius: float = 0.08,
+        realistic: bool = True) -> dict:
     if drone not in DRONE_PROFILES:
         raise SystemExit(f"unknown drone '{drone}'. Choose from: {', '.join(DRONE_PROFILES)}")
     out = Path(out_dir)
@@ -68,11 +69,14 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
     t0 = time.time()
 
     print("[1/4] Training drone voiceprint ...")
-    vp = VoiceprintModel.train(drone, n_per_class=n_voiceprint, fs=fs, seed=seed, bank=bank)
+    vp = VoiceprintModel.train(drone, n_per_class=n_voiceprint, fs=fs, seed=seed, bank=bank,
+                               **(dict(rpm_range=0.30, sensor_aug=True) if realistic else {}))
     print(f"  calibrated harmonic level at 1 m: {vp.level_1m_db:.1f} dB")
 
     print("[2/4] Training multimodal reference subtraction (drone-free window) ...")
-    scene = Scene(array=octahedral_array(array_radius), fs=fs, drone=drone, bank=bank)
+    # realistic: rigid-sphere scattering and hardware errors of a calibrated common-clock build
+    extra = dict(scattering=True, pos_err_mm=1.0, gain_err_db=0.5, delay_err_us=5.0) if realistic else {}
+    scene = Scene(array=octahedral_array(array_radius), fs=fs, drone=drone, bank=bank, **extra)
     cal = render(scene, 8.0, drone_on=False, rng=rng)
     canceller = ReferenceCanceller().fit(cal.mics, cal.refs)
     val = render(scene, 4.0, drone_on=False, rng=rng)
@@ -82,7 +86,11 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
 
     print("[3/4] Training 3D sound meter (neural localizer) in simulation ...")
     neural = _train_neural(scene, canceller, vp, n_neural, rng, 0.5)
-    meter = SoundMeter3D(scene.array, fs, vp.level_1m_db)
+    if realistic:   # level measured with the (simulated) physical sensor, sphere-aware steering
+        from .exp_passive import calibrate_level
+        meter = SoundMeter3D(scene.array, fs, calibrate_level(scene, rng), steering="sphere")
+    else:
+        meter = SoundMeter3D(scene.array, fs, vp.level_1m_db)
 
     print(f"[4/4] Homing mission ({duration:.0f} s) ...")
     scene.trajectory = homing_trajectory(duration)
@@ -103,9 +111,9 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
         seg = slice(end - frame, end)
         ana = vp.analyse(clean[0, end - vp_len:end])
         kf.predict()
-        row = {"t": t, "truth": truth.tolist(), "p_target": ana["p_target"], "bpf": ana["bpf_hz"],
+        row = {"t": t, "truth": truth.tolist(), "p_target": ana["p_target"], "is_target": bool(ana["is_target"]), "bpf": ana["bpf_hz"],
                "label": ana["label"]}
-        if ana["p_target"] >= 0.5:
+        if ana["is_target"]:
             m = meter.measure(clean[:, seg], ana["bpf_hz"])
             raw = meter.measure(rec.mics[:, seg], ana["bpf_hz"])
             u_n, r_n = neural.predict(neural.features(clean[:, seg], ana["bpf_hz"]))
@@ -136,7 +144,7 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
 
 
 def _evaluate(rows, center, drone) -> dict:
-    rep = {"frames": len(rows), "detection_rate": float(np.mean([r["p_target"] >= 0.5 for r in rows]))}
+    rep = {"frames": len(rows), "detection_rate": float(np.mean([r["is_target"] for r in rows]))}
     for key in ("raw", "meter", "neural", "track"):
         sel = [r for r in rows if key in r]
         if not sel:

@@ -40,14 +40,24 @@ class DroneProfile:
         """Blade-passing frequency at hover - the fundamental of the voiceprint."""
         return self.hover_rpm / 60.0 * self.n_blades
 
-    def timbre(self) -> "Timbre":
-        """Deterministic per-model details that make the voiceprint unique."""
+    def timbre(self, unit: int | None = None) -> "Timbre":
+        """Deterministic per-model details that make the signature unique.
+
+        ``unit`` selects one physical example of the model: units of the same
+        model share the harmonic pattern but differ by manufacturing and wear
+        (rotor-to-rotor RPM offsets, +-1.5 dB harmonic gains, shaft imbalance).
+        """
         rng = np.random.default_rng(zlib.crc32(self.key.encode()))
         k = np.arange(self.n_harmonics)
         gains_db = -self.harmonic_decay_db * k + rng.normal(0, 4.0, self.n_harmonics)
-        gains_db[0] = 0.0
         offsets = rng.uniform(-self.rotor_spread, self.rotor_spread, self.n_rotors)
         shaft_db = -18 + rng.normal(0, 3, 4)
+        if unit is not None:
+            ru = np.random.default_rng(zlib.crc32(self.key.encode()) + 7919 * (unit + 1))
+            gains_db = gains_db + ru.normal(0, 1.5, self.n_harmonics)
+            offsets = ru.uniform(-self.rotor_spread, self.rotor_spread, self.n_rotors)
+            shaft_db = shaft_db + ru.normal(0, 3, 4)
+        gains_db[0] = 0.0
         return Timbre(10 ** (gains_db / 20), offsets, 10 ** (shaft_db / 20))
 
 

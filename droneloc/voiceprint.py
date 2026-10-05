@@ -66,9 +66,24 @@ def _background(n: int, fs: int, rng: np.random.Generator) -> np.ndarray:
             + bird_chirps(n, fs, rng, rng.uniform(25, 45), rate_hz=2))
 
 
+def _sensor_colouring(x: np.ndarray, fs: int, rng, table=None):
+    """Filter a segment with the rigid-sphere response of a random incidence angle,
+    i.e. the spectral colouring a microphone on the 160 mm sensor applies."""
+    from .sphere import rigid_sphere_response
+    f = np.fft.rfftfreq(x.size, 1 / fs)
+    H = rigid_sphere_response(f, 0.08, np.array([rng.uniform(-1, 1)]))[0]
+    return np.fft.irfft(np.fft.rfft(x) * H, x.size)
+
+
 def make_training_set(drones: list[str], n_per_class: int = 120, seg: float = 1.0, fs: int = 16000,
-                      rng: np.random.Generator | None = None, bank=None):
-    """Simulated 1 s segments of each drone at random SNR, plus a background class."""
+                      rng: np.random.Generator | None = None, bank=None, rpm_range: float = 0.12,
+                      sensor_aug: bool = False):
+    """Simulated 1 s segments of each drone at random SNR, plus a background class.
+
+    ``rpm_range`` sets the throttle augmentation (+-12% originally; +-30% is
+    recommended, see the RPM-excursion test) and ``sensor_aug`` passes each
+    segment through the rigid-sphere response of a random direction so that the
+    classifier sees the spectral colouring of the physical sensor."""
     rng = rng or np.random.default_rng(0)
     n = int(seg * fs)
     X, y = [], []
@@ -78,11 +93,13 @@ def make_training_set(drones: list[str], n_per_class: int = 120, seg: float = 1.
             if label == BACKGROUND:
                 x = bg
             else:
-                thr = 1 + rng.uniform(-0.12, 0.12) + 0.03 * np.sin(np.linspace(0, rng.uniform(1, 6), n))
+                thr = 1 + rng.uniform(-rpm_range, rpm_range) + 0.03 * np.sin(np.linspace(0, rng.uniform(1, 6), n))
                 src = (bank.get(label, seg, rng, thr) if bank else
                        synthesize_drone(DRONE_PROFILES[label], seg, fs, rng, thr))
                 snr = rng.uniform(-3, 25)
                 x = src / rms(src) * rms(bg) * 10 ** (snr / 20) + bg
+            if sensor_aug:
+                x = _sensor_colouring(x, fs, rng)
             X.append(features(x, fs)[0])
             y.append(label)
     return np.array(X), np.array(y)
@@ -98,12 +115,13 @@ class VoiceprintModel:
 
     @classmethod
     def train(cls, target: str, drones: list[str] | None = None, n_per_class: int = 120,
-              fs: int = 16000, seed: int = 0, bank=None, verbose: bool = True) -> "VoiceprintModel":
+              fs: int = 16000, seed: int = 0, bank=None, verbose: bool = True,
+              rpm_range: float = 0.12, sensor_aug: bool = False) -> "VoiceprintModel":
         drones = drones or list(DRONE_PROFILES)
         if target not in drones:
             drones = drones + [target]
         rng = np.random.default_rng(seed)
-        X, y = make_training_set(drones, n_per_class, fs=fs, rng=rng, bank=bank)
+        X, y = make_training_set(drones, n_per_class, fs=fs, rng=rng, bank=bank, rpm_range=rpm_range, sensor_aug=sensor_aug)
         idx = rng.permutation(len(y))
         cut = int(0.8 * len(y))
         tr, te = idx[:cut], idx[cut:]
@@ -144,7 +162,11 @@ class VoiceprintModel:
         prob = self.clf.predict_proba(feat[None])[0]
         classes = list(self.clf.classes_)
         f0, _ = estimate_bpf(welch_psd(x, N_FFT, N_FFT // 4), self.fs, *self.f0_range)
-        return {"label": classes[int(np.argmax(prob))],
+        label = classes[int(np.argmax(prob))]
+        # decision = most probable class (MAP); a fixed 0.5 threshold on the target
+        # probability rejects correct decisions when the probability mass is spread
+        # over eight classes
+        return {"label": label, "is_target": label == self.target,
                 "p_target": float(prob[classes.index(self.target)]),
                 "bpf_hz": f0}
 
