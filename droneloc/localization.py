@@ -43,10 +43,19 @@ class GccPhat:
         self.N = n_fft * interp
         self.max_lag = int(np.ceil(array.max_tdoa * fs * interp)) + 2
 
-    def cross_spectra(self, frame: np.ndarray, f0: float | None, band: tuple | None = None) -> np.ndarray:
+    def noise_csd(self, noise: np.ndarray) -> np.ndarray:
+        """Average cross-spectra of a target-free recording, shape (P, F), for subtraction."""
+        X = stft(noise, self.n_fft, self.hop)
+        i, j = self.pairs.T
+        return np.mean(X[i] * X[j].conj(), axis=-1)
+
+    def cross_spectra(self, frame: np.ndarray, f0: float | None, band: tuple | None = None,
+                      noise: np.ndarray | None = None) -> np.ndarray:
         X = stft(frame, self.n_fft, self.hop)
         i, j = self.pairs.T
         G = np.mean(X[i] * X[j].conj(), axis=-1)
+        if noise is not None:  # noise cross-spectral density subtraction before PHAT
+            G = G - noise
         if band is not None:
             w = ((self.freqs >= band[0]) & (self.freqs <= band[1])).astype(float)
         else:

@@ -15,6 +15,8 @@ Inputs
 --band       "lo,hi" Hz for a beacon / broadband source, or
 --bpf        "lo,hi" Hz search range for a rotor blade-passing frequency (harmonic comb)
 --steering   free | sphere (sphere requires the octahedral 160 mm sensor)
+--noise      target-free recording (e.g. motors only) whose average cross-spectra are
+             subtracted before PHAT weighting, optional
 
 Example (own sensor, loudspeaker bench test):
     python -m droneloc evaluate-array --wav bench.wav --geometry sphere160.csv \
@@ -57,9 +59,8 @@ def unit(az_deg: float, el_deg: float) -> np.ndarray:
     return np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])
 
 
-def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = None, cal: tuple | None = None,
-             band: tuple | None = None, bpf: tuple | None = None, steering: str = "free", fs_proc: int = 16000,
-             out_csv: Path | None = None) -> dict:
+def _read(wav: Path, fs_proc: int) -> np.ndarray:
+    """Multichannel WAV as (channels, samples) at fs_proc."""
     import soundfile as sf
 
     x, fs = sf.read(str(wav), always_2d=True)
@@ -67,6 +68,13 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
     if fs != fs_proc:
         g = np.gcd(int(fs), fs_proc)
         x = resample_poly(x, fs_proc // g, int(fs) // g, axis=1)
+    return x
+
+
+def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = None, cal: tuple | None = None,
+             band: tuple | None = None, bpf: tuple | None = None, steering: str = "free", fs_proc: int = 16000,
+             out_csv: Path | None = None, noise_wav: Path | None = None) -> dict:
+    x = _read(wav, fs_proc)
     pos = load_geometry(geometry)
     M = len(pos)
     mics, ref_sig = x[:M], (x[refs] if refs else None)
@@ -82,6 +90,7 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
     fmin = band[0] if band else 0.0
     gcc = GccPhat(arr, fs_proc, n_fft=1024, hop=256)
     srp = PhaseSRP(gcc, steering, n_dirs=4000, min_elevation_deg=-90, fmin=fmin, fmax=fmax)
+    noise = gcc.noise_csd(_read(noise_wav, fs_proc)[:M]) if noise_wav else None
     rows = []
     for seg in load_truth(truth):
         a, b = int(seg["t_start"] * fs_proc), int(seg["t_end"] * fs_proc)
@@ -89,7 +98,7 @@ def evaluate(wav: Path, geometry: Path, truth: Path, refs: list[int] | None = No
         f0 = None
         if bpf:
             f0, _ = estimate_bpf(welch_psd(frame[0], 4096, 1024), fs_proc, *bpf)
-        G = gcc.cross_spectra(frame, f0, band=band if not bpf else None)
+        G = gcc.cross_spectra(frame, f0, band=band if not bpf else None, noise=noise)
         u, _ = srp.locate(G)
         truth_u = unit(seg["azimuth_deg"], seg["elevation_deg"])
         err = float(angle_between_deg(u, truth_u))
