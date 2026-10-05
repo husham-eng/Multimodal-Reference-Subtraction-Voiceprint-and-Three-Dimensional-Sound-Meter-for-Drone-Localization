@@ -1,10 +1,10 @@
-"""Collect outputs/revision/*.json into one summary used by the manuscript and the response letter."""
+"""Collect outputs/results/*.json into one summary used by the manuscript."""
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, ".")
-R = Path("outputs/revision")
+R = Path("outputs/results")
 
 
 def load(n):

@@ -7,7 +7,7 @@ authors:
   - family-names: Saied
     given-names: Husham
     affiliation: "Prince Sultan Military College of Health Sciences"
-version: "2.1.0"
+version: "2.2.0"
 doi: 10.5281/zenodo.23122228
 identifiers:
   - type: doi

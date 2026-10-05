@@ -1,4 +1,4 @@
-"""Tables and figure for the DREGON evaluation from the per-segment CSVs in docs/revision/dregon."""
+"""Tables and figure for the DREGON evaluation from the per-segment CSVs in docs/results/dregon."""
 import csv
 import json
 import sys
@@ -9,7 +9,7 @@ import numpy as np
 sys.path.insert(0, ".")
 from droneloc.stats import bootstrap_ci, wilson  # noqa: E402
 
-D = Path("docs/revision/dregon")
+D = Path("docs/results/dregon")
 REC = [("silent-flight_whitenoise-low", "Motors off, white noise (low)"),
        ("free-flight_whitenoise-high", "Free flight, white noise (high)"),
        ("free-flight_whitenoise-low", "Free flight, white noise (low)"),
@@ -78,5 +78,5 @@ for a in ax.ravel():
     a.grid(alpha=0.3)
 fig.tight_layout(rect=(0, 0, 1, 0.94))
 for ext in ("png", "pdf"):
-    fig.savefig(f"outputs/revision/figs/fig11_dregon.{ext}", dpi=600 if ext == "png" else None)
+    fig.savefig(f"outputs/results/figs/fig11_dregon.{ext}", dpi=600 if ext == "png" else None)
 print("saved fig11_dregon")

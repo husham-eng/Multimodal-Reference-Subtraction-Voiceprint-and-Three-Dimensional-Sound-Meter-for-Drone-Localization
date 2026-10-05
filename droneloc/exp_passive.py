@@ -1,4 +1,4 @@
-"""Revision experiments for the passive (station) mode.
+"""Experiments for the passive (station) mode.
 
 M1  sphere scattering and calibration errors          -> run_m1()
 M4  reference-subtraction ablation and stress tests    -> run_m4()
@@ -80,7 +80,7 @@ M1_CONDITIONS = [
 ]
 
 
-def run_m1(n_pos: int = 60, seed: int = 0, out: Path = Path("outputs/revision")) -> dict:
+def run_m1(n_pos: int = 60, seed: int = 0, out: Path = Path("outputs/results")) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     pos = random_positions(n_pos, seed)
     res = {}
@@ -137,7 +137,7 @@ def _shadow_tdr(canc, kind, idx, scene, pos, seed):
     return float(10 * np.log10(np.sum(only.target[:, sl] ** 2) / np.sum((tgt - only.target)[:, sl] ** 2)))
 
 
-def run_m4(n_pos: int = 30, seed: int = 0, out: Path = Path("outputs/revision")) -> dict:
+def run_m4(n_pos: int = 30, seed: int = 0, out: Path = Path("outputs/results")) -> dict:
     """Reference-sensor ablation x canceller policy under stress conditions (M4).
 
     Scenarios: stationary machinery; +20 dB wind on the reference microphone;
@@ -199,7 +199,7 @@ def _random_trajectory(rng, duration):
     return homing_trajectory(duration, start=start, end=end, spiral_radius=rng.uniform(0, 8), turns=rng.uniform(0.5, 2))
 
 
-def run_m6(n_runs: int = 30, duration: float = 30.0, seed: int = 0, out: Path = Path("outputs/revision"),
+def run_m6(n_runs: int = 30, duration: float = 30.0, seed: int = 0, out: Path = Path("outputs/results"),
            vp=None, sensor_aug: bool = True, tag: str = "m6") -> dict:
     """Monte Carlo of the full passive pipeline over seeds, trajectories, interference level and wind."""
     out.mkdir(parents=True, exist_ok=True)

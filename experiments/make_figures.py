@@ -1,7 +1,7 @@
 """Figures of the revised manuscript (600 dpi PNG + vector PDF).
 
-    python experiments/figures_revision.py static     # model / diagram figures
-    python experiments/figures_revision.py results    # figures from outputs/revision/*.json
+    python experiments/make_figures.py static     # model / diagram figures
+    python experiments/make_figures.py results    # figures from outputs/results/*.json
 """
 import json
 import sys
@@ -15,7 +15,7 @@ import numpy as np  # noqa: E402
 from matplotlib.patches import FancyBboxPatch  # noqa: E402
 
 sys.path.insert(0, ".")
-OUT = Path("outputs/revision/figs")
+OUT = Path("outputs/results/figs")
 OUT.mkdir(parents=True, exist_ok=True)
 plt.rcParams.update({"font.size": 9, "axes.titlesize": 9, "axes.labelsize": 9, "legend.fontsize": 8, "font.family": "DejaVu Sans"})
 
@@ -167,7 +167,7 @@ def fig_real_spectra():
 
 # ----------------------------------------------------------------------------- result figures
 def load(n):
-    p = Path("outputs/revision") / f"{n}.json"
+    p = Path("outputs/results") / f"{n}.json"
     return json.loads(p.read_text()) if p.exists() else None
 
 

@@ -91,7 +91,7 @@ class Scene:
     ground_reflection: float = 0.5        # reflection coefficient, 0 disables
     sensor_noise_db: float = 18.0
     bank: SourceBank | None = None
-    # --- realism options (reviewer comments M1, M4) ---
+    # --- realism options (experiments M1, M4) ---
     scattering: bool = False              # rigid-sphere diffraction instead of free-field points
     pos_err_mm: float = 0.0               # std of microphone position error (per axis)
     gain_err_db: float = 0.0              # std of microphone sensitivity mismatch

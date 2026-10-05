@@ -1,9 +1,9 @@
-"""Run the experiments added in response to the peer review.
+"""Run the experiments reported in the manuscript.
 
-    python experiments/run_revision.py m1 m4 m6      # passive mode
-    python experiments/run_revision.py m5            # voiceprint
-    python experiments/run_revision.py m2            # active mode
-Results are written to outputs/revision/*.json.
+    python experiments/run_experiments.py m1 m4 m6      # passive mode
+    python experiments/run_experiments.py m5            # voiceprint
+    python experiments/run_experiments.py m2            # active mode
+Results are written to outputs/results/*.json.
 """
 import sys
 import time
