@@ -16,6 +16,12 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.23122229
     description: "Version 2.0.0"
+  - type: doi
+    value: 10.5281/zenodo.23122603
+    description: "Version 2.0.1"
+  - type: doi
+    value: 10.5281/zenodo.23151340
+    description: "Version 2.1.0"
 date-released: "2026-10-05"
 repository-code: "https://github.com/husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization"
 keywords:

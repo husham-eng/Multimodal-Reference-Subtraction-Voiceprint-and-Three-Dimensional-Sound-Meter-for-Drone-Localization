@@ -108,7 +108,7 @@ python experiments/figures_revision.py
 
 - التقرير الكامل (الإصدار الثاني): [`docs/Drone_Acoustic_Guidance_Report_EN_v2.docx`](docs/Drone_Acoustic_Guidance_Report_EN_v2.docx)
 - بيانات الاستشهاد في [`CITATION.cff`](CITATION.cff)، وبيانات أرشفة Zenodo في [`.zenodo.json`](.zenodo.json).
-- الأرشفة على Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228) (كل الإصدارات)، والإصدار 2.0.0: [10.5281/zenodo.23122229](https://doi.org/10.5281/zenodo.23122229)
+- الأرشفة على Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228) (كل الإصدارات)، والإصدار 2.0.0: [10.5281/zenodo.23122229](https://doi.org/10.5281/zenodo.23122229)، والإصدار 2.0.1: [10.5281/zenodo.23122603](https://doi.org/10.5281/zenodo.23122603)، والإصدار 2.1.0 (المستخدم في المقالة): [10.5281/zenodo.23151340](https://doi.org/10.5281/zenodo.23151340)
 
 ## ملاحظات وحدود
 
