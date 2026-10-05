@@ -80,7 +80,7 @@ def make_training_set(drones: list[str], n_per_class: int = 120, seg: float = 1.
                       sensor_aug: bool = False):
     """Simulated 1 s segments of each drone at random SNR, plus a background class.
 
-    ``rpm_range`` sets the throttle augmentation (+-12% originally; +-30% is
+    ``rpm_range`` sets the throttle augmentation (+-12% narrow; +-30% is
     recommended, see the RPM-excursion test) and ``sensor_aug`` passes each
     segment through the rigid-sphere response of a random direction so that the
     classifier sees the spectral colouring of the physical sensor."""

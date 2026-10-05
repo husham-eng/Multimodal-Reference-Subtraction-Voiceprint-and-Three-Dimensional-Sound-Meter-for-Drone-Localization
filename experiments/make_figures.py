@@ -1,4 +1,4 @@
-"""Figures of the revised manuscript (600 dpi PNG + vector PDF).
+"""Figures of the manuscript (600 dpi PNG + vector PDF).
 
     python experiments/make_figures.py static     # model / diagram figures
     python experiments/make_figures.py results    # figures from outputs/results/*.json
@@ -198,12 +198,12 @@ def fig_loop():
         return
     fig, ax = plt.subplots(figsize=(6.8, 2.8))
     labels, vals, lo, hi, cols = [], [], [], [], []
-    short = {"silence windows, energy detector, fixed fusion (original)": "silence, energy, fixed fusion (orig.)",
-             "motors running, energy detector, fixed fusion (original baseline)": "running, energy, fixed fusion (orig.)",
+    short = {"silence windows, energy detector, fixed fusion (baseline)": "silence, energy, fixed fusion (baseline)",
+             "motors running, energy detector, fixed fusion (baseline, motors running)": "running, energy, fixed fusion (baseline)",
              "motors running, matched filter, SRP-sphere": "running, MF, SRP",
              "motors running, matched filter + RPM notch, SRP-sphere": "running, MF + notch, SRP",
              "motors running, matched filter + reference canceller, SRP-sphere": "running, MF + ref. canceller, SRP",
-             "silence windows, matched filter, SRP-sphere (revised)": "silence, MF, SRP (revised)"}
+             "silence windows, matched filter, SRP-sphere (proposed)": "silence, MF, SRP (proposed)"}
     for key, col in (("loop", "0.25"), ("loop_coherent", "0.7")):
         for name, r in m2.get(key, {}).items():
             k, n = r["success"]

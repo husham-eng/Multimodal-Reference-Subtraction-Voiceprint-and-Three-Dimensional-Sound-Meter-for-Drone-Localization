@@ -1,7 +1,7 @@
 {
  "m1": {
   "A": {
-   "label": "free-field simulation, lag-domain SRP (original)",
+   "label": "free-field simulation, lag-domain SRP (fixed grid)",
    "angle_median": [
     0.945015286244246,
     0.7509156580820268,
@@ -3361,7 +3361,7 @@
    }
   },
   "loop": {
-   "silence windows, energy detector, fixed fusion (original)": {
+   "silence windows, energy detector, fixed fusion (baseline)": {
     "success": [
      24,
      30
@@ -3374,7 +3374,7 @@
     "mean_time": 19.74583333333348,
     "median_dir_err": 1.8466914208461196
    },
-   "motors running, energy detector, fixed fusion (original baseline)": {
+   "motors running, energy detector, fixed fusion (baseline, motors running)": {
     "success": [
      0,
      30
@@ -3426,7 +3426,7 @@
     "mean_time": 22.10000000000018,
     "median_dir_err": 121.7263931362913
    },
-   "silence windows, matched filter, SRP-sphere (revised)": {
+   "silence windows, matched filter, SRP-sphere (proposed)": {
     "success": [
      25,
      30
@@ -3441,7 +3441,7 @@
    }
   },
   "loop_coherent": {
-   "motors running, energy detector, fixed fusion (original baseline)": {
+   "motors running, energy detector, fixed fusion (baseline, motors running)": {
     "success": [
      0,
      30
