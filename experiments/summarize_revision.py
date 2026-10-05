@@ -35,5 +35,21 @@ pipe = Path("outputs/rev_pipeline/report.json")
 if pipe.exists():
     p = json.loads(pipe.read_text()); p.pop("frames", None)
     out["pipeline"] = p
-(R / "summary.json").write_text(json.dumps(out, indent=1, default=float))
+
+
+def clean(o):
+    """Strict JSON: NaN -> null, +/-inf -> +/-1e9 (JavaScript cannot parse NaN/Infinity)."""
+    if isinstance(o, dict):
+        return {k: clean(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [clean(v) for v in o]
+    if isinstance(o, float):
+        if o != o:
+            return None
+        if o in (float("inf"), float("-inf")):
+            return 1e9 if o > 0 else -1e9
+    return o
+
+
+(R / "summary.json").write_text(json.dumps(clean(out), indent=1, default=float, allow_nan=False))
 print("parts:", list(out))
