@@ -1,0 +1,76 @@
+{
+ "recordings": {
+  "DREGON_free-flight_whitenoise-high_room1": {
+   "segments": 105,
+   "fs": 44100,
+   "channels": 8,
+   "azimuth_range_raw": [
+    -179.96920261041532,
+    179.94253296781108
+   ],
+   "elevation_range_raw": [
+    -81.20743911276053,
+    20.16328753383515
+   ],
+   "audio_timestamps": true,
+   "band": [
+    300.0,
+    7000.0
+   ],
+   "median_error": [
+    3.5358684415462323,
+    2.9421292214351182,
+    3.945084946934845
+   ],
+   "within_10deg": [
+    0.7240221679553136,
+    0.8731759621714026
+   ],
+   "frac_within_10deg": 0.8095238095238095
+  }
+ },
+ "skipped": [],
+ "segment_s": 0.5,
+ "all": {
+  "segments": 105,
+  "median_error": [
+   3.5358684415462323,
+   2.9421292214351182,
+   3.945084946934845
+  ],
+  "within_10deg": [
+   85,
+   105,
+   0.7240221679553136,
+   0.8731759621714026
+  ],
+  "within_20deg": [
+   85,
+   105,
+   0.7240221679553136,
+   0.8731759621714026
+  ]
+ },
+ "frame_convention_check": [
+  {
+   "azimuth": "+az",
+   "elevation": "+el",
+   "median_error": 3.5358684415464383
+  },
+  {
+   "azimuth": "+az",
+   "elevation": "-el",
+   "median_error": 37.58305273503216
+  },
+  {
+   "azimuth": "-az+180",
+   "elevation": "+el",
+   "median_error": 72.13265408428106
+  },
+  {
+   "azimuth": "-az+270",
+   "elevation": "+el",
+   "median_error": 77.07318806115572
+  }
+ ]
+}
