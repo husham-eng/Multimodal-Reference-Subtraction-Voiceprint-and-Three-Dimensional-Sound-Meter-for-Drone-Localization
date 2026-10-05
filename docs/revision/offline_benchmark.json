@@ -1,0 +1,20 @@
+{
+ "cpu": "x86_64",
+ "python": "3.11.15",
+ "hops": 77,
+ "hop_ms": 250.0,
+ "frame_ms": 500.0,
+ "median_step_ms": {
+  "reference subtraction": 10.786956999993436,
+  "voiceprint": 72.27612999997746,
+  "sphere SRP + range": 124.01109900002893,
+  "Kalman": 0.2799050000135139
+ },
+ "median_total_ms": 209.43411799999012,
+ "p95_total_ms": 241.8666548000033,
+ "real_time_factor": 0.8377364719999605,
+ "train_voiceprint_s": 155.89859989800001,
+ "train_canceller_s": 0.05594733800000995,
+ "voiceprint_model_mb": 10.793916,
+ "network": "blocked (no connection attempted)"
+}

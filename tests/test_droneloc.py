@@ -126,3 +126,27 @@ def test_dregon_batch(tmp_path):
     out = run_dregon(tmp_path / "data", tmp_path / "out2", segment=0.5)
     assert out["skipped"] == ["DREGON_free-flight_nosource_room1"]
     assert (tmp_path / "out" / "dregon_summary.json").exists()
+
+
+def test_offline_chain_without_network():
+    """Training and the passive run-time chain complete with every network connection blocked."""
+    import urllib.request
+    import pytest
+    from droneloc.offline import NetworkUsed, blocked_network
+    from droneloc.reference_subtraction import ReferenceCanceller
+    from droneloc.localization import SoundMeter3D
+    from droneloc.voiceprint import VoiceprintModel
+    with blocked_network():
+        with pytest.raises(NetworkUsed):  # the guard really blocks
+            urllib.request.urlopen("http://example.com", timeout=2)
+        rng = np.random.default_rng(0)
+        vp = VoiceprintModel.train("hexa_swap", n_per_class=12, fs=FS, seed=0)
+        scene = Scene(machinery_level_db=75, wind_level_db=35)
+        cal = render(scene, 4.0, drone_on=False, rng=rng)
+        canc = ReferenceCanceller().fit(cal.mics, cal.refs)
+        scene.trajectory = static(scene.array.center + np.array([10.0, 5.0, 4.0]))
+        rec = render(scene, 1.0, rng=rng)
+        clean = canc.transform(rec.mics, rec.refs)
+        ana = vp.analyse(clean[0])
+        m = SoundMeter3D(scene.array, FS, vp.level_1m_db).measure(clean[:, -FS // 2:], ana["bpf_hz"])
+    assert np.isfinite(m["position"]).all()
