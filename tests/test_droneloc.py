@@ -150,3 +150,20 @@ def test_offline_chain_without_network():
         ana = vp.analyse(clean[0])
         m = SoundMeter3D(scene.array, FS, vp.level_1m_db).measure(clean[:, -FS // 2:], ana["bpf_hz"])
     assert np.isfinite(m["position"]).all()
+
+
+def test_pico_packet_reader():
+    from droneloc.pico import PacketReader, make_packet
+    rng = np.random.default_rng(0)
+    d = [rng.integers(-32768, 32767, (64, 12)).astype(np.int16) for _ in range(4)]
+    raw = b"junk" + make_packet(0, d[0]) + make_packet(1, d[1])
+    bad = bytearray(make_packet(2, d[2])); bad[30] ^= 1          # corrupt packet 2
+    raw += bytes(bad) + make_packet(3, d[3])
+    rd = PacketReader()
+    out = []
+    for i in range(0, len(raw), 100):                              # arbitrary chunking
+        out += rd.feed(raw[i:i + 100])
+    assert [o[0] for o in out] == [0, 1, None, 3]
+    assert np.array_equal(out[0][3], d[0]) and np.array_equal(out[3][3], d[3])
+    assert not out[2][3].any() and out[2][3].shape == (64, 12)    # gap filled with zeros
+    assert rd.bad >= 1 and rd.lost == 1 and out[0][2] == 15625
