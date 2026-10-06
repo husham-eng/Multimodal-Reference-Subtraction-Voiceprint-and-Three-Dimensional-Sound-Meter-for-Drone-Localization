@@ -20,6 +20,10 @@ them over USB to `experiments/record_pico.py`, which writes a 12-channel WAV.
 
 ## Wiring
 
+![Wiring diagram](wiring.png)
+
+(`wiring.png` / `wiring.svg` are drawn by `wiring_diagram.py`.)
+
 All microphones: `VDD -> 3V3(OUT)` (pin 36), `GND -> GND`, `SCK -> GP8` (pin 11),
 `WS -> GP9` (pin 12). Each data line is shared by two microphones; the `L/R`
 pin selects the slot (`GND` = left = even channel, `3V3` = right = odd channel).
