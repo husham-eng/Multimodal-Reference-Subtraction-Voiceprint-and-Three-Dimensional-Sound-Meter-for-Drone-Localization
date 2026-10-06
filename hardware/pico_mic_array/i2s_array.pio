@@ -1,0 +1,40 @@
+; Synchronous I2S capture of up to 12 INMP441 microphones (6 data lines x L/R)
+; with ONE shared bit clock (SCK) and word select (WS) for all of them.
+;
+; Pin map (fixed, see main.c): SCK = GPIO 8, WS = GPIO 9, data lines = GPIO 2..7.
+; Bit clock 2.0 MHz, 64 clocks per frame -> 31250 frames/s.
+
+; ---------------------------------------------------------------------------
+; Clock generator. Side-set bit 0 = SCK, bit 1 = WS. Two instructions per SCK
+; period (50 % duty); 32 periods with WS low (left), 32 with WS high (right).
+; WS changes during a low SCK phase, one clock before the MSB (I2S standard).
+; The state machine is started at `start`.
+.program i2s_clock
+.side_set 2
+.wrap_target
+left_loop:
+    nop                 side 0b01   ; SCK high, WS low
+    jmp x-- left_loop   side 0b00   ; SCK low
+    nop                 side 0b01   ; 32nd high phase of the left half
+    set x, 30           side 0b10   ; SCK low, WS -> high
+right_loop:
+    nop                 side 0b11
+    jmp x-- right_loop  side 0b10
+    nop                 side 0b11
+public start:
+    set x, 30           side 0b00   ; SCK low, WS -> low
+.wrap
+
+; ---------------------------------------------------------------------------
+; One data line (IN base = the line's GPIO). Synchronises once to the start of
+; a left half, then samples the line on every rising SCK edge. Autopush every
+; 32 bits gives one word per half frame: word bit 31 = edge 0, bits 30..7 =
+; the 24-bit sample (MSB first, I2S one-clock delay).
+.program i2s_line
+    wait 1 gpio 9
+    wait 0 gpio 9
+.wrap_target
+    wait 0 gpio 8
+    wait 1 gpio 8
+    in pins, 1
+.wrap
