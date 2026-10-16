@@ -167,3 +167,46 @@ def test_pico_packet_reader():
     assert np.array_equal(out[0][3], d[0]) and np.array_equal(out[3][3], d[3])
     assert not out[2][3].any() and out[2][3].shape == (64, 12)    # gap filled with zeros
     assert rd.bad >= 1 and rd.lost == 1 and out[0][2] == 15625
+
+
+def _live_recording(tmp_path, az, el, machinery_db, cal_s=0.0, on_s=3.0):
+    """Simulated sphere + reference channels as an int16 WAV: cal_s s drone absent, then on_s s drone on."""
+    import soundfile as sf
+    rng = np.random.default_rng(5)
+    scene = Scene(scattering=True, machinery_level_db=machinery_db, wind_level_db=30, bird_level_db=-100)
+    a, e = np.radians(az), np.radians(el)
+    scene.trajectory = static(scene.array.center + 15 * np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)]))
+    parts = [render(scene, cal_s, drone_on=False, rng=rng)] if cal_s else []
+    parts.append(render(scene, on_s, rng=rng))
+    x = np.hstack([np.vstack([p.mics, p.refs]) for p in parts])
+    sf.write(tmp_path / "live.wav", (x / np.abs(x).max() * 0.9).T, FS, subtype="PCM_16")
+    return tmp_path / "live.wav", parts[0].refs.shape[0]
+
+
+def test_live_wav_replay(tmp_path):
+    from droneloc import live
+    wav, _ = _live_recording(tmp_path, 40, 25, machinery_db=-100)
+    rows = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, quiet=True, log=tmp_path / "log.csv",
+                    bpf=(105, 200), steering="sphere")
+    assert len(rows) >= 9 and (tmp_path / "log.csv").exists()
+    err = [angle_between_deg(live_unit(r), live_unit({"azimuth_deg": 40, "elevation_deg": 25})) for r in rows]
+    assert np.median(err) < 5
+
+
+def test_live_reference_calibration(tmp_path):
+    from droneloc import live
+    wav, R = _live_recording(tmp_path, -110, 30, machinery_db=80, cal_s=3.0)
+    kw = dict(bpf=(105, 200), steering="sphere", quiet=True)
+    refs = list(range(6, 6 + R))
+    with_ref = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, refs=refs, cal_seconds=3.0, **kw)
+    assert with_ref[0]["t"] >= 3.0                                  # estimates start after calibration
+    truth = live_unit({"azimuth_deg": -110, "elevation_deg": 30})
+    err = np.median([angle_between_deg(live_unit(r), truth) for r in with_ref])
+    without = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, **kw)
+    err0 = np.median([angle_between_deg(live_unit(r), truth) for r in without if r["t"] > 3.0])
+    assert err < 3 and err0 > 30                                  # machinery dominates without references
+
+
+def live_unit(r):
+    a, e = np.radians(r["azimuth_deg"]), np.radians(r["elevation_deg"])
+    return np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])

@@ -1,4 +1,4 @@
-"""Command line: python -m droneloc {libraries,download,run,evaluate-array,dregon,coherence,sphere-geometry}."""
+"""Command line: python -m droneloc {libraries,download,run,evaluate-array,dregon,coherence,sphere-geometry,live}."""
 import argparse
 
 from .catalog import DATASETS, DRONE_PROFILES, describe
@@ -47,6 +47,21 @@ def main() -> None:
                     help="noise-only in-flight WAV (no source); adds a run with noise cross-spectra subtraction")
     g = sub.add_parser("sphere-geometry", help="write the geometry CSV of the 160 mm octahedral sensor")
     g.add_argument("path", nargs="?", default="sphere160.csv")
+    lv = sub.add_parser("live", help="live direction finding from the Pico microphone array (or a WAV replay)")
+    lv.add_argument("--port", default=None, help="serial port (default: auto-detect the Pico)")
+    lv.add_argument("--wav", default=None, help="replay this recording through the live path instead of the Pico")
+    lv.add_argument("--realtime", action="store_true", help="with --wav: replay at the recording's speed")
+    lv.add_argument("--geometry", default=None, help="CSV x,y,z per array mic [m] (default: 160 mm sphere)")
+    lv.add_argument("--array", default=None, help="array channel indices (default: 0..M-1)")
+    lv.add_argument("--refs", default=None, help="reference channel indices, e.g. 6,7,8,9,10")
+    lv.add_argument("--cal", type=float, default=3.0, help="seconds at the start used to train the reference canceller")
+    lv.add_argument("--band", default=None, help="lo,hi [Hz] for a beacon or broadband source")
+    lv.add_argument("--bpf", default=None, help="lo,hi [Hz] blade-passing-frequency search range (harmonic comb)")
+    lv.add_argument("--steering", default="free", choices=["free", "sphere"])
+    lv.add_argument("--window", type=float, default=0.5, help="analysis window [s]")
+    lv.add_argument("--hop", type=float, default=0.25, help="time between estimates [s]")
+    lv.add_argument("--seconds", type=float, default=None, help="stop after this many seconds")
+    lv.add_argument("--log", default=None, help="write every estimate to this CSV")
     a = ap.parse_args()
     if a.cmd == "libraries":
         print(describe())
@@ -72,6 +87,18 @@ def main() -> None:
         from pathlib import Path
         from .real_array import write_sphere_geometry
         write_sphere_geometry(Path(a.path)); print(f"written {a.path}")
+    elif a.cmd == "live":
+        from pathlib import Path
+        from . import live
+        from .real_array import load_geometry
+        ints = lambda v: [int(i) for i in v.split(",")] if v else None  # noqa: E731
+        pair = lambda v: tuple(float(x) for x in v.split(",")) if v else None  # noqa: E731
+        pos = load_geometry(Path(a.geometry)) if a.geometry else live.SPHERE_DIRS * 0.08
+        src = live.wav_bytes(Path(a.wav), a.realtime) if a.wav else live.serial_bytes(a.port)
+        refs = ints(a.refs)
+        live.run(src, pos, a.seconds, Path(a.log) if a.log else None, array_ch=ints(a.array), refs=refs,
+                 cal_seconds=a.cal if refs else 0.0, window=a.window, hop=a.hop, band=pair(a.band),
+                 bpf=pair(a.bpf), steering=a.steering)
     elif a.cmd == "download":
         from .datasets import download
         download(a.dataset)

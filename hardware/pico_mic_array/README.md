@@ -66,6 +66,20 @@ python -m droneloc coherence --wav run01.wav --refs 6,7,8,9
 Output: 15625 Hz, 16-bit, usable band up to 6.9 kHz (the `droneloc` tools
 resample internally).
 
+## Live direction finding
+
+```
+python -m droneloc live --bpf 105,200 --steering sphere                       # drone direction, 4 per second
+python -m droneloc live --refs 6,7,8,9,10 --cal 3 --bpf 105,200 --steering sphere --log live.csv
+python -m droneloc live --wav run01.wav --band 3000,6000                      # replay a recording, no Pico needed
+```
+
+With `--refs`, keep the target away for the first `--cal` seconds (machinery /
+motors running): they train the reference canceller, which is then applied to
+every 0.5 s window. `--wav` cuts a recording into the same USB packets, so a
+recording made with `record_pico.py` goes through exactly the live code path.
+On a laptop the processing runs faster than real time.
+
 ## Firmware details
 
 * System clock 128 MHz, SCK = 2.0 MHz, 64 SCK per frame -> 31250 Hz from the
