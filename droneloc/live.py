@@ -53,6 +53,7 @@ class LiveLocator:
         self.cal_buf: list[np.ndarray] = []
         self.cal_have = 0
         self.buf = np.zeros((0, len(self.array_ch) + len(self.refs)))
+        self.pending: list[np.ndarray] = []
         self.t = 0          # samples consumed after calibration (time of the window end)
         self.next_at = self.win
 
@@ -71,8 +72,13 @@ class LiveLocator:
             M = len(self.array_ch)
             self.canc = ReferenceCanceller().fit(c[:self.n_cal, :M].T, c[:self.n_cal, M:].T)
             x, self.cal_buf = c[self.n_cal:], []
-        self.buf = np.concatenate([self.buf, x])[-(self.pad + self.win + self.hop + len(x)):]
+        self.pending.append(x)
         self.t += len(x)
+        if self.t < self.next_at:
+            return []
+        # join the packets only when an estimate is due (a copy per USB packet is slow on a Pi)
+        self.buf = np.concatenate([self.buf] + self.pending)
+        self.pending = []
         out = []
         while self.t >= self.next_at:
             end = len(self.buf) - (self.t - self.next_at)
@@ -81,6 +87,7 @@ class LiveLocator:
                 w = self.buf[max(0, end - self.win - self.pad):end].T
                 out.append(self._estimate(w, (self.next_at + self.n_cal) / self.fs))
             self.next_at += self.hop
+        self.buf = self.buf[-(self.pad + self.win):]
         return out
 
     def _estimate(self, w: np.ndarray, t: float) -> dict:

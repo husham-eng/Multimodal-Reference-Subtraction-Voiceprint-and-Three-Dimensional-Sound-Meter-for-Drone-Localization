@@ -78,8 +78,10 @@ With `--refs`, keep the target away for the first `--cal` seconds (machinery /
 motors running): they train the reference canceller, which is then applied to
 every 0.5 s window. `--wav` cuts a recording into the same USB packets, so a
 recording made with `record_pico.py` goes through exactly the live code path.
-One estimate takes ~30 ms on a laptop and ~150 ms on a Raspberry Pi 4 (32-bit OS), so
-the default 0.25 s hop runs in real time on both; startup takes a few seconds on the Pi.
+One estimate takes ~30 ms on a laptop and was measured at ~400 ms on a Raspberry Pi with
+the 32-bit OS (before the packet-buffer change), so on the Pi use `--hop 0.5` for now.
+`python experiments/profile_live.py live.wav` times every step of one estimate on the
+computer it runs on; the estimate must take less than the hop to keep up in real time.
 
 ## Firmware details
 
