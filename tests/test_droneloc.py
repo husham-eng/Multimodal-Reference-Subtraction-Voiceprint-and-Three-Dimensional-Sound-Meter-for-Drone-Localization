@@ -210,3 +210,12 @@ def test_live_reference_calibration(tmp_path):
 def live_unit(r):
     a, e = np.radians(r["azimuth_deg"]), np.radians(r["elevation_deg"])
     return np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])
+
+
+def test_frames_match_sliding_window():
+    from numpy.lib.stride_tricks import sliding_window_view
+    from droneloc.dsp import frames
+    x = np.random.default_rng(0).standard_normal((3, 5000))
+    for n_fft, hop in [(1024, 256), (2048, 512), (4096, 1024), (64, 7)]:
+        assert np.array_equal(frames(x, n_fft, hop), sliding_window_view(x, n_fft, axis=-1)[..., ::hop, :])
+    assert np.array_equal(frames(x[1:, ::2], 128, 32), sliding_window_view(x[1:, ::2], 128, axis=-1)[..., ::32, :])
