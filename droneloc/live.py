@@ -36,10 +36,14 @@ class LiveLocator:
     def __init__(self, positions: np.ndarray, fs: int, array_ch: list[int] | None = None,
                  refs: list[int] | None = None, cal_seconds: float = 0.0, window: float = 0.5,
                  hop: float = 0.25, band: tuple | None = None, bpf: tuple | None = None,
-                 steering: str = "free", n_dirs: int = 2000, min_level_db: float = -80.0):
+                 steering: str = "free", n_dirs: int = 1000, min_level_db: float = -80.0,
+                 cap_n: int = 150, skip_late: bool = False):
+        """skip_late: when several estimates are due at once (the computer fell behind the
+        stream), compute only the newest one, so the delay stays bounded on a slow computer."""
         if refs and cal_seconds <= 0:
             raise ValueError("reference channels need a calibration time (cal_seconds > 0)")
         self.fs, self.band, self.bpf, self.min_level_db = fs, band, bpf, min_level_db
+        self.skip_late, self.skipped = skip_late, 0
         self.array_ch = list(array_ch) if array_ch is not None else list(range(len(positions)))
         self.refs = list(refs or [])
         self.win, self.hop = int(window * fs), int(hop * fs)
@@ -47,7 +51,8 @@ class LiveLocator:
         centre = positions.mean(0)
         self.gcc = GccPhat(MicArray(positions - centre, centre), fs, n_fft=1024, hop=256)
         fmin, fmax = band if band else (0.0, min(4000.0, fs / 2))
-        self.srp = PhaseSRP(self.gcc, steering, n_dirs=n_dirs, min_elevation_deg=-90, fmin=fmin, fmax=fmax, fast=True)
+        self.srp = PhaseSRP(self.gcc, steering, n_dirs=n_dirs, min_elevation_deg=-90, fmin=fmin, fmax=fmax,
+                            fast=True, cap_n=cap_n)
         self.canc: ReferenceCanceller | None = None
         self.pad = ReferenceCanceller().n_fft if self.refs else 0
         self.cal_buf: list[np.ndarray] = []
@@ -80,6 +85,10 @@ class LiveLocator:
         self.buf = np.concatenate([self.buf] + self.pending)
         self.pending = []
         out = []
+        if self.skip_late and self.t >= self.next_at + self.hop:
+            late = (self.t - self.next_at) // self.hop
+            self.next_at += late * self.hop
+            self.skipped += late
         while self.t >= self.next_at:
             end = len(self.buf) - (self.t - self.next_at)
             if end >= self.win:
@@ -136,10 +145,20 @@ def wav_bytes(path: Path, realtime: bool = False, nf: int = 64) -> Iterator[byte
     import soundfile as sf
 
     x, fs = sf.read(str(path), always_2d=True, dtype="int16")
-    for seq, i in enumerate(range(0, len(x) - nf + 1, nf)):
-        if realtime:
+    starts = range(0, len(x) - nf + 1, nf)
+    if not realtime:
+        for seq, i in enumerate(starts):
+            yield make_packet(seq, x[i:i + nf], fs=int(fs))
+        return
+    # paced by the wall clock like the Pico: whatever became due while we were busy arrives at once
+    t0, seq = time.perf_counter(), 0
+    while seq < len(starts):
+        due = min(len(starts), int((time.perf_counter() - t0) * fs / nf) + 1)
+        if due <= seq:
             time.sleep(nf / fs)
-        yield make_packet(seq, x[i:i + nf], fs=int(fs))
+            continue
+        yield b"".join(make_packet(k, x[starts[k]:starts[k] + nf], fs=int(fs)) for k in range(seq, due))
+        seq = due
 
 
 def run(source: Iterator[bytes], positions: np.ndarray, seconds: float | None = None,
@@ -149,20 +168,24 @@ def run(source: Iterator[bytes], positions: np.ndarray, seconds: float | None = 
     f = open(log, "w", newline="") if log else None
     try:
         for chunk in source:
-            for _, _, fs, frames in rd.feed(chunk):
-                if loc is None:
-                    loc = LiveLocator(positions, fs, **kw)
-                    if loc.calibrating and not quiet:
-                        print(f"calibrating reference canceller for {loc.n_cal / fs:.1f} s "
-                              "(keep the target away) ...", file=sys.stderr)
-                for r in loc.push(frames):
-                    rows.append(r)
-                    if f and writer is None:
-                        writer = csv.DictWriter(f, fieldnames=list(r)); writer.writeheader()
-                    if writer:
-                        writer.writerow(r)
-                    if not quiet:
-                        print(_fmt(r, rd), flush=True)
+            packets = rd.feed(chunk)
+            if not packets:
+                continue
+            if loc is None:
+                fs = packets[0][2]
+                loc = LiveLocator(positions, fs, **kw)
+                if loc.calibrating and not quiet:
+                    print(f"calibrating reference canceller for {loc.n_cal / fs:.1f} s "
+                          "(keep the target away) ...", file=sys.stderr)
+            # everything from one read at once, so a computer that fell behind can skip ahead
+            for r in loc.push(np.concatenate([p[3] for p in packets])):
+                rows.append(r)
+                if f and writer is None:
+                    writer = csv.DictWriter(f, fieldnames=list(r)); writer.writeheader()
+                if writer:
+                    writer.writerow(r)
+                if not quiet:
+                    print(_fmt(r, rd, loc.skipped), flush=True)
             if seconds and rows and rows[-1]["t"] >= seconds:
                 break
     except KeyboardInterrupt:
@@ -173,11 +196,13 @@ def run(source: Iterator[bytes], positions: np.ndarray, seconds: float | None = 
     return rows
 
 
-def _fmt(r: dict, rd: PacketReader) -> str:
+def _fmt(r: dict, rd: PacketReader, skipped: int = 0) -> str:
     s = f"t={r['t']:7.2f} s  level {r['level_dbfs']:6.1f} dBFS  "
     if r["azimuth_deg"] is None:
         return s + "(too quiet)"
     s += f"az {r['azimuth_deg']:7.1f}  el {r['elevation_deg']:6.1f}  power {r['power']:.2f}"
     if r["bpf_hz"]:
         s += f"  BPF {r['bpf_hz']:.0f} Hz"
+    if skipped:
+        s += f"  | skipped {skipped} (computer too slow for --hop)"
     return s + (f"  | lost {rd.lost} bad {rd.bad}" if rd.lost or rd.bad else "")

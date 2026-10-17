@@ -98,7 +98,7 @@ def main() -> None:
         refs = ints(a.refs)
         live.run(src, pos, a.seconds, Path(a.log) if a.log else None, array_ch=ints(a.array), refs=refs,
                  cal_seconds=a.cal if refs else 0.0, window=a.window, hop=a.hop, band=pair(a.band),
-                 bpf=pair(a.bpf), steering=a.steering)
+                 bpf=pair(a.bpf), steering=a.steering, skip_late=a.realtime or not a.wav)
     elif a.cmd == "download":
         from .datasets import download
         download(a.dataset)

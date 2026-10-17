@@ -11,6 +11,8 @@ harmonics, so residual interference and wind outside the comb are ignored.
 """
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 from scipy.ndimage import median_filter
 
@@ -106,15 +108,19 @@ class SRPPHAT:
         return u / np.linalg.norm(u), float(p[b] / len(cc))
 
 
+@lru_cache(maxsize=8)
+def _cap_template(max_deg: float, n: int) -> np.ndarray:
+    pts = fibonacci_sphere(int(n * 2 / (1 - np.cos(np.radians(max_deg)))))
+    return pts[pts[:, 2] >= np.cos(np.radians(max_deg))]          # cap around +z
+
+
 def _local_cap(u: np.ndarray, max_deg: float, n: int = 400) -> np.ndarray:
     """Quasi-uniform directions inside a spherical cap around u."""
-    from .dsp import fibonacci_sphere
-    pts = fibonacci_sphere(int(n * 2 / (1 - np.cos(np.radians(max_deg)))))
-    pts = pts[pts[:, 2] >= np.cos(np.radians(max_deg))]          # cap around +z
+    pts = _cap_template(float(max_deg), int(n))
     z = np.array([0, 0, 1.0])
     v = np.cross(z, u); s_, c_ = np.linalg.norm(v), z @ u
     if s_ < 1e-9:
-        return pts if c_ > 0 else -pts
+        return pts.copy() if c_ > 0 else -pts
     k = v / s_
     K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
     Rm = np.eye(3) + s_ * K + (1 - c_) * K @ K                    # rotation z -> u
@@ -133,13 +139,13 @@ class PhaseSRP:
 
     def __init__(self, gcc: GccPhat, model: str = "free", n_dirs: int = 3000,
                  min_elevation_deg: float = -30.0, refine_deg: float = 8.0,
-                 fmin: float = 0.0, fmax: float = F_MAX, fast: bool = False):
+                 fmin: float = 0.0, fmax: float = F_MAX, fast: bool = False, cap_n: int = 400):
         """fast=True (used by the live mode on small computers): the pair products
         conj(Phi_i) Phi_j of the coarse grid are precomputed, so the grid search is one
         matrix-vector product, and the sphere phases of the refinement cap are
         interpolated from a precomputed table instead of evaluating the Rayleigh series.
         Directions agree with the exact search to a small fraction of a degree."""
-        self.gcc, self.model, self.refine_deg, self.fast = gcc, model, refine_deg, fast
+        self.gcc, self.model, self.refine_deg, self.fast, self.cap_n = gcc, model, refine_deg, fast, cap_n
         self.fmask = (gcc.freqs > fmin) & (gcc.freqs <= fmax)
         self.f = gcc.freqs[self.fmask]
         self.dirs = fibonacci_sphere(n_dirs, min_elevation_deg)
@@ -195,7 +201,7 @@ class PhaseSRP:
         if prior is not None:
             p = np.where(self.dirs @ prior >= np.cos(np.radians(prior_deg)), p, -np.inf)
         b = int(np.argmax(p))
-        cap = _local_cap(self.dirs[b], self.refine_deg)
+        cap = _local_cap(self.dirs[b], self.refine_deg, self.cap_n)
         pc = self._power(Gw, self._phases(cap))
         k = int(np.argmax(pc))
         return cap[k], float(pc[k] / len(G))

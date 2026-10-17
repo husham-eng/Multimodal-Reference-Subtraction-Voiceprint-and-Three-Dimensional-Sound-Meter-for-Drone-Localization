@@ -234,3 +234,13 @@ def test_fast_srp_matches_exact(tmp_path, model):
     for a in range(0, len(x[0]) - 8000, 8000):
         G = gcc.cross_spectra(x[:, a:a + 8000], 150.0)
         assert angle_between_deg(exact.locate(G)[0], fast.locate(G)[0]) < 0.5
+
+
+def test_live_skips_late_windows():
+    """A slow computer that receives 2 s at once computes only the newest window."""
+    from droneloc import live
+    x = (np.random.default_rng(1).standard_normal((3 * FS, 6)) * 3000).astype(np.int16)
+    L = live.LiveLocator(live.SPHERE_DIRS * 0.08, FS, band=(300, 4000), skip_late=True)
+    assert [r["t"] for r in L.push(x[:FS])] == [1.0]                # windows ending at 0.5 and 0.75 s skipped
+    r = L.push(x[FS:3 * FS])
+    assert [q["t"] for q in r] == [3.0] and L.skipped == 2 + 7
