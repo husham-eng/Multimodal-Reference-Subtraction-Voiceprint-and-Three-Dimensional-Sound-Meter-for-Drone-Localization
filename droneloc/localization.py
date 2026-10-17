@@ -13,9 +13,6 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.ndimage import median_filter
-from sklearn.neural_network import MLPRegressor
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 from .dsp import P_REF, SPEED_OF_SOUND, fibonacci_sphere, harmonic_weights, stft, welch_psd
 from .simulation import MicArray
@@ -136,16 +133,25 @@ class PhaseSRP:
 
     def __init__(self, gcc: GccPhat, model: str = "free", n_dirs: int = 3000,
                  min_elevation_deg: float = -30.0, refine_deg: float = 8.0,
-                 fmin: float = 0.0, fmax: float = F_MAX):
-        self.gcc, self.model, self.refine_deg = gcc, model, refine_deg
+                 fmin: float = 0.0, fmax: float = F_MAX, fast: bool = False):
+        """fast=True (used by the live mode on small computers): the pair products
+        conj(Phi_i) Phi_j of the coarse grid are precomputed, so the grid search is one
+        matrix-vector product, and the sphere phases of the refinement cap are
+        interpolated from a precomputed table instead of evaluating the Rayleigh series.
+        Directions agree with the exact search to a small fraction of a degree."""
+        self.gcc, self.model, self.refine_deg, self.fast = gcc, model, refine_deg, fast
         self.fmask = (gcc.freqs > fmin) & (gcc.freqs <= fmax)
         self.f = gcc.freqs[self.fmask]
         self.dirs = fibonacci_sphere(n_dirs, min_elevation_deg)
-        self.phi = self._phases(self.dirs)
         if model == "sphere":
             from .sphere import rigid_sphere_response
             self._cos_grid = np.linspace(-1, 1, 721)
             self._table = rigid_sphere_response(self.f, self._radius(), self._cos_grid)
+            self._utable = (self._table / np.abs(self._table)).astype(np.complex64)
+        self.phi = self._phases(self.dirs)
+        if fast:  # (D, P*F) pair products of the coarse grid; ~60 MB for 2000 directions
+            self._grid = self._pair_products(self.phi)
+            del self.phi
 
     def _radius(self) -> float:
         return float(np.linalg.norm(self.gcc.array.positions, axis=1).mean())
@@ -158,8 +164,18 @@ class PhaseSRP:
         from .sphere import rigid_sphere_response
         normals = pos / np.linalg.norm(pos, axis=1, keepdims=True)
         cos = np.clip(normals @ dirs.T, -1, 1)
+        if self.fast and hasattr(self, "_grid"):  # refinement cap: interpolate the unit-phase table
+            x = (cos + 1) * (len(self._cos_grid) - 1) / 2
+            i = np.minimum(x.astype(int), len(self._cos_grid) - 2)
+            a = (x - i)[..., None].astype(np.float32)
+            return self._utable[i] * (1 - a) + self._utable[i + 1] * a
         H = rigid_sphere_response(self.f, self._radius(), cos.ravel()).reshape(cos.shape + (self.f.size,))
         return (H / np.abs(H)).astype(np.complex64)
+
+    def _pair_products(self, phi: np.ndarray) -> np.ndarray:
+        i, j = self.gcc.pairs.T
+        pp = np.conj(phi[i]) * phi[j]                               # (P, D, F)
+        return np.ascontiguousarray(pp.transpose(1, 0, 2)).reshape(phi.shape[1], -1)
 
     def _power(self, Gw: np.ndarray, phi: np.ndarray) -> np.ndarray:
         out = np.zeros(phi.shape[1])
@@ -175,7 +191,7 @@ class PhaseSRP:
         searched only within ``prior_deg`` of it, which removes the spurious
         far-away peaks that dominate SRP outliers at low SNR."""
         Gw = G[:, self.fmask].astype(np.complex64)
-        p = self._power(Gw, self.phi)
+        p = (self._grid @ Gw.ravel()).real if self.fast else self._power(Gw, self.phi)
         if prior is not None:
             p = np.where(self.dirs @ prior >= np.cos(np.radians(prior_deg)), p, -np.inf)
         b = int(np.argmax(p))
@@ -215,6 +231,9 @@ class NeuralLocalizer:
     def __init__(self, array: MicArray, fs: int, level_1m_db: float, interp: int = 4, **gcc_kw):
         self.gcc = GccPhat(array, fs, interp=interp, **gcc_kw)
         self.fs, self.level_1m_db = fs, level_1m_db
+        from sklearn.neural_network import MLPRegressor  # imported here: slow to load on a Raspberry Pi
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
         self.model = make_pipeline(StandardScaler(), MLPRegressor(
             hidden_layer_sizes=(256, 128), alpha=1e-3, learning_rate_init=1e-3, max_iter=400,
             early_stopping=True, n_iter_no_change=20, random_state=0))

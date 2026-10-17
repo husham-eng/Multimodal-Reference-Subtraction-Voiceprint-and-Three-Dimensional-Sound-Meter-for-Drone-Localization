@@ -47,10 +47,11 @@ class LiveLocator:
         centre = positions.mean(0)
         self.gcc = GccPhat(MicArray(positions - centre, centre), fs, n_fft=1024, hop=256)
         fmin, fmax = band if band else (0.0, min(4000.0, fs / 2))
-        self.srp = PhaseSRP(self.gcc, steering, n_dirs=n_dirs, min_elevation_deg=-90, fmin=fmin, fmax=fmax)
+        self.srp = PhaseSRP(self.gcc, steering, n_dirs=n_dirs, min_elevation_deg=-90, fmin=fmin, fmax=fmax, fast=True)
         self.canc: ReferenceCanceller | None = None
         self.pad = ReferenceCanceller().n_fft if self.refs else 0
         self.cal_buf: list[np.ndarray] = []
+        self.cal_have = 0
         self.buf = np.zeros((0, len(self.array_ch) + len(self.refs)))
         self.t = 0          # samples consumed after calibration (time of the window end)
         self.next_at = self.win
@@ -63,8 +64,8 @@ class LiveLocator:
         x = frames[:, self.array_ch + self.refs].astype(float) / 32768.0
         if self.calibrating:
             self.cal_buf.append(x)
-            have = sum(len(c) for c in self.cal_buf)
-            if have < self.n_cal:
+            self.cal_have += len(x)
+            if self.cal_have < self.n_cal:
                 return []
             c = np.concatenate(self.cal_buf)
             M = len(self.array_ch)

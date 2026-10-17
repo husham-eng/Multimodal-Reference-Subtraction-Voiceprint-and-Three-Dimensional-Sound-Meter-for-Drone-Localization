@@ -12,10 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 from .catalog import DRONE_PROFILES
 from .dsp import mel_filterbank, rms, welch_psd
@@ -125,6 +121,10 @@ class VoiceprintModel:
         idx = rng.permutation(len(y))
         cut = int(0.8 * len(y))
         tr, te = idx[:cut], idx[cut:]
+        from sklearn.ensemble import RandomForestClassifier  # imported here: slow to load on a Raspberry Pi
+        from sklearn.metrics import accuracy_score, confusion_matrix
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
         clf = make_pipeline(StandardScaler(), RandomForestClassifier(300, random_state=seed, n_jobs=-1))
         clf.fit(X[tr], y[tr])
         pred = clf.predict(X[te])

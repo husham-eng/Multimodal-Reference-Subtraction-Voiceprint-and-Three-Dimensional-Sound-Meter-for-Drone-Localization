@@ -219,3 +219,18 @@ def test_frames_match_sliding_window():
     for n_fft, hop in [(1024, 256), (2048, 512), (4096, 1024), (64, 7)]:
         assert np.array_equal(frames(x, n_fft, hop), sliding_window_view(x, n_fft, axis=-1)[..., ::hop, :])
     assert np.array_equal(frames(x[1:, ::2], 128, 32), sliding_window_view(x[1:, ::2], 128, axis=-1)[..., ::32, :])
+
+
+@pytest.mark.parametrize("model", ["free", "sphere"])
+def test_fast_srp_matches_exact(tmp_path, model):
+    import soundfile as sf
+    from droneloc.localization import GccPhat, PhaseSRP
+    from droneloc.simulation import MicArray
+    from droneloc import live
+    wav, _ = _live_recording(tmp_path, 75, 15, machinery_db=-100, on_s=2.0)
+    x = sf.read(str(wav))[0].T[:6]
+    gcc = GccPhat(MicArray(live.SPHERE_DIRS * 0.08, np.zeros(3)), FS)
+    exact, fast = (PhaseSRP(gcc, model, n_dirs=2000, min_elevation_deg=-90, fast=f) for f in (False, True))
+    for a in range(0, len(x[0]) - 8000, 8000):
+        G = gcc.cross_spectra(x[:, a:a + 8000], 150.0)
+        assert angle_between_deg(exact.locate(G)[0], fast.locate(G)[0]) < 0.5
