@@ -69,7 +69,7 @@ for (pn, num, col, lab), y in zip(srows, sy):
 # 5V supply bus
 BUS5, BUSG = Y2 + 260, Y2 + 300
 s.r(1480, BUS5 - 40, 270, 110, "#fff3e0", P5V, rx=10, sw=2)
-s.t(1615, BUS5 - 8, "مزوّد 5V / 2A", 18, P5V, bold=True)
+s.t(1615, BUS5 - 8, "مزوّد 5V / 5A", 18, P5V, bold=True)
 s.t(1615, BUS5 + 20, "للسيرفو والليزر فقط", 14, P5V)
 s.t(1615, BUS5 + 46, "+5V (أعلى) · GND (أسفل)", 13, GRY)
 s.ln([(420, BUS5), (1480, BUS5)], P5V, 3.4)
@@ -81,12 +81,12 @@ cx = 1460
 s.c(cx, BUS5, 5, P5V); s.c(cx, BUSG, 5, BLK)
 s.ln([(cx, BUS5), (cx, BUS5 + 13)], P5V, 2); s.ln([(cx - 14, BUS5 + 13), (cx + 14, BUS5 + 13)], BLK, 3)
 s.ln([(cx - 14, BUS5 + 22), (cx + 14, BUS5 + 22)], BLK, 3); s.ln([(cx, BUS5 + 22), (cx, BUSG)], BLK, 2)
-s.t(cx - 20, BUS5 + 24, "470µF", 13, BLK, "end", bold=True)
+s.t(cx - 20, BUS5 + 24, "1000µF", 13, BLK, "end", bold=True)
 # Pico GND to bus GND
 s.ln([(PXR + 4, sy[3]), (380, sy[3]), (380, BUSG), (420, BUSG)], BLK, 2.6, dash="8,5")
 s.t(390, sy[3] + 70, "أرضي مشترك", 13, BLK, "start", bold=True)
 # servos
-for k, (y, name) in enumerate([(sy[0], "سيرفو Pan (MG90S)"), (sy[1], "سيرفو Tilt (MG90S)")]):
+for k, (y, name) in enumerate([(sy[0], "سيرفو Pan (MG995)"), (sy[1], "سيرفو Tilt (MG995)")]):
     bx = 620 + k * 330
     s.r(bx, Y2 + 10, 240, 120, "#fce4ec", PNK, rx=10, sw=2)
     s.t(bx + 120, Y2 + 40, name, 16, PNK, bold=True)
