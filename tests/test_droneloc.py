@@ -244,3 +244,16 @@ def test_live_skips_late_windows():
     assert [r["t"] for r in L.push(x[:FS])] == [1.0]                # windows ending at 0.5 and 0.75 s skipped
     r = L.push(x[FS:3 * FS])
     assert [q["t"] for q in r] == [3.0] and L.skipped == 2 + 7
+
+
+def test_find_port_prefers_product_name(monkeypatch):
+    from types import SimpleNamespace
+    from serial.tools import list_ports
+    from droneloc.pico import find_port
+    ports = [SimpleNamespace(vid=0x2E8A, product="DroneLoc Pointer", device="/dev/ttyACM0"),
+             SimpleNamespace(vid=0x2E8A, product="DroneLoc Mic Array", device="/dev/ttyACM1")]
+    monkeypatch.setattr(list_ports, "comports", lambda: ports)
+    assert find_port() == "/dev/ttyACM1"
+    assert find_port("DroneLoc Pointer") == "/dev/ttyACM0"
+    monkeypatch.setattr(list_ports, "comports", lambda: ports[:1] + [SimpleNamespace(vid=0x1234, product=None, device="x")])
+    assert find_port() == "/dev/ttyACM0"                                   # fallback: first Pico

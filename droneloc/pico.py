@@ -75,13 +75,16 @@ class PacketReader:
             out.append((seq, dropped, fs, np.frombuffer(raw, "<i2").reshape(nf, nch).copy()))
 
 
-def find_port() -> str | None:
-    """Serial port of the first connected Pico (USB VID 0x2E8A)."""
+def find_port(product: str = "DroneLoc Mic Array") -> str | None:
+    """Serial port of the Pico whose USB product name is `product` (several Picos may be
+    connected, e.g. the microphone array and the camera/pointer board); if no port reports
+    that name, the first port with the Raspberry Pi USB vendor id 0x2E8A."""
     from serial.tools import list_ports
-    for p in list_ports.comports():
-        if p.vid == 0x2E8A:
+    picos = [p for p in list_ports.comports() if p.vid == 0x2E8A]
+    for p in picos:
+        if p.product == product:
             return p.device
-    return None
+    return picos[0].device if picos else None
 
 
 def level_db(frames: np.ndarray) -> np.ndarray:
