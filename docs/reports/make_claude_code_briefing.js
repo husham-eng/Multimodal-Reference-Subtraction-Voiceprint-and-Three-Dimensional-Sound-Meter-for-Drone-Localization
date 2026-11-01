@@ -44,8 +44,8 @@ const add = (...xs) => xs.forEach(x => Array.isArray(x) ? body.push(...x) : body
 
 // ======================================================= Arabic cover note
 add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: runs(b('Briefing for Claude Code on the Raspberry Pi'), { size: 40, color: '1F3864' }) }));
-add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: runs('Acoustic drone localization — hardware bring-up: microphone array, camera, pan/tilt pointer', { size: 24, color: '555555' }) }));
-add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Prepared 29 October 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch claude/epic-ride-9fqd2p', { size: 18, color: '777777' }) }));
+add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: runs('Acoustic drone localization — hardware bring-up: microphone array, two USB cameras, two pan/tilt heads', { size: 24, color: '555555' }) }));
+add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Updated 1 November 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch claude/epic-ride-9fqd2p', { size: 18, color: '777777' }) }));
 add(new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: runs(b('ملاحظة لك (د. هشام):'), { size: 28, color: '1F3864' }, true) }));
 add(AR('هذا الملف موجّه إلى Claude Code الذي سيعمل على الراسبيري باي بعد أن تُكمل بناء الدائرة. يشرح له كل ما أُضيف: الدائرة، والأطراف، والبرامج، وما جُرّب وما لم يُجرَّب بعد، وخطوات التشغيل والاختبار. بهذا لا تحتاج أن تشرح من جديد.'));
 add(AR('الجزء التقني مكتوب بالإنجليزية لأن Claude Code يتعامل معها بأعلى دقة، خصوصاً مع أسماء الأطراف والأوامر. وهو يفهم العربية، فاكتب له طلباتك بالعربية كالمعتاد.'));
@@ -69,7 +69,7 @@ add(B(['The software side is written and tested in simulation; ', b('none of the
 add(B(['Do not change the exact estimation path that produced the published results (', c('main'), ' = release 2.1.0, Zenodo DOI 10.5281/zenodo.23151340). Speed-ups for the Pi go behind options such as ', c('PhaseSRP(fast=True)'), ', which only the live mode uses.']));
 add(B(['Keep the code Python 3.9 compatible and working on 32-bit ARM (the current Pi OS is armhf).']));
 add(B(['Run ', c('python -m pytest tests'), ' after changes (22 tests; about 4 minutes on the Pi).']));
-add(B(['Safety: laser below 1 mW (class 2), indoor bench tests only, never towards people, aircraft or drones in flight; servos on their own 5 V supply.']));
+add(B(['Safety: servos on their own 5 V supplies (one per head), never from the Pico or the Pi; keep hands clear of the heads while they move.']));
 
 // ======================================================= 2
 add(H1('2. Project and computer'));
@@ -96,18 +96,18 @@ add(P(['Untracked files such as ', c('live.wav'), ' (a simulated test recording)
 
 // ======================================================= 3
 add(H1('3. Hardware architecture'));
-add(P('Two Raspberry Pi Pico boards (RP2040), each on its own USB cable to the Raspberry Pi. There are no other wires between the Picos and the Pi, or between the two Picos. Each Pico is powered by its USB cable; the servos and the laser have a separate 5 V supply whose ground is joined to the ground of Pico 2.'));
+add(P('Two Raspberry Pi Pico boards (RP2040) and two USB webcams, each on its own USB cable to the Raspberry Pi (assumed to be a Raspberry Pi 4: Picos on the two black USB 2 ports, cameras on the two blue USB 3 ports). There are no other wires between these devices and the Pi. Each Pico is powered by its USB cable; each pan/tilt head has its own 5 V supply whose ground is joined to the ground of Pico 2.'));
 add(...IMG(FIG + 'system_overview.png', 600, 'Figure 1. System overview (labels in Arabic).'));
-add(TABLE(['', 'Pico 1 – audio', 'Pico 2 – camera and pointer'], [
+add(TABLE(['', 'Pico 1 – audio', 'Pico 2 – servo controller'], [
   ['Firmware', [c('hardware/pico_mic_array/pico_mic_array.uf2'), ' (built, not yet run on hardware)'], b('Not written yet (section 6)')],
   ['USB product name', c('DroneLoc Mic Array'), [c('DroneLoc Pointer'), ' (planned)']],
-  ['To the Pi', '12 audio channels, 15625 Hz, int16 (375 kB/s)', 'Camera frames, 160x120 grayscale, ~10–15 fps'],
-  ['From the Pi', 'Nothing (streams while the port is open, DTR set)', 'Pan/tilt angles, laser on/off'],
-  ['Attached', '12 x INMP441 I2S microphones', 'OV7670 camera (no FIFO, 18 pins), 2 x MG995 servos, laser < 1 mW'],
+  ['To the Pi', '12 audio channels, 15625 Hz, int16 (375 kB/s)', 'Short status replies'],
+  ['From the Pi', 'Nothing (streams while the port is open, DTR set)', 'Pan/tilt angles for the two heads'],
+  ['Attached', '12 x INMP441 I2S microphones', '4 x MG995 servos (upper and lower pan/tilt head)'],
 ], [1900, 3850, 3850]));
 add(SP());
 add(P([b('Port detection: '), c('droneloc.pico.find_port(product="DroneLoc Mic Array")'), ' picks the port by USB product name and falls back to the first Raspberry Pi vendor id (0x2E8A) port. Give Pico 2 a different product string so the two are never confused.']));
-add(P([b('Parts: '), 'the user ordered the INMP441 microphones (expected around 1 November 2026) and a Raspberry Pi Pico (RP2040, without soldered headers: the 2 x 20 header strips must be soldered). They own an OV7670 (no-FIFO, 18-pin) camera. The user chose MG995 servos (the camera and laser add weight); the pan/tilt bracket and laser are still to be bought. An Adafruit BNO085 IMU (product 4754) was considered for a later phase (array orientation) and is not part of this bring-up.']));
+add(P([b('Parts: '), 'the user ordered the INMP441 microphones (expected around 1 November 2026) and a Raspberry Pi Pico (RP2040, without soldered headers: the 2 x 20 header strips must be soldered). For the visual check they use two Logitech Brio 100 USB webcams (they replaced an OV7670 camera module) on two pan/tilt heads with four MG995 servos; there is no laser for now. Brackets and servo supplies are still to be bought. An Adafruit BNO085 IMU (product 4754) was considered for a later phase (array orientation) and is not part of this bring-up.']));
 
 // ======================================================= 4
 add(new Paragraph({ children: [new PageBreak()] }));
@@ -178,61 +178,62 @@ add(P([b('Accuracy in simulation: '), 'median error below 1° without machinery 
 add(P([b('Tried and rejected: '), 'cancelling directly in the GCC STFT domain without overlap-add resynthesis (145° error, as bad as no cancellation).']));
 
 // ======================================================= 6
-add(H1('6. Pico 2: camera and pan/tilt laser pointer (to be implemented)'));
-add(P('Purpose: visual and quantitative check of the acoustic direction estimate, and a tool to calibrate the array alignment. The pan/tilt head points along the estimated direction; indoors a laser dot shows where the system thinks a loudspeaker is; a camera on the same head shows whether the source is at the image centre, and the pixel offset gives the error in degrees. Outdoors the laser is useless (the dot is invisible against the sky) and must not be aimed at aircraft or drones: use the camera only.'));
-add(...IMG(FIG + 'pico2_camera_wiring.png', 600, 'Figure 4. Pico 2 wiring: OV7670 (no FIFO), pan/tilt servos and laser.'));
-add(H2('6.1 Pin assignment'));
+add(H1('6. Pico 2, two pan/tilt heads and two USB cameras (to be implemented)'));
+add(P('Purpose: a visual and quantitative check of the acoustic direction estimate, and a tool to calibrate the array alignment. Each head carries a camera and points along the estimated direction; if the estimate is right, the sound source (a loudspeaker indoors, the drone outdoors) appears at the image centre, and its pixel offset gives the angular error in degrees. The upper head covers the upper hemisphere; the lower head, mounted upside down, covers the lower hemisphere. There is no laser in the current design.'));
+add(...IMG(FIG + 'pico2_servo_wiring.png', 600, 'Figure 4. Pico 2 wiring: four MG995 servos in two heads, one 5 V / 5 A supply per head.'));
+add(H2('6.1 Pin assignment (Pico 2)'));
 add(TABLE(['Pico pin', 'GPIO', 'Signal', 'Notes'], [
-  ['1, 2, 4, 5, 6, 7, 9, 10', 'GP0–GP7', 'OV7670 D0–D7', 'Consecutive GPIOs, read by one PIO program'],
-  ['11', 'GP8', 'PCLK (camera → Pico)', 'Pixel clock'], ['12', 'GP9', 'HREF', 'Line valid'], ['14', 'GP10', 'VSYNC', 'Frame start'],
-  ['27', 'GP21', 'XCLK (Pico → camera)', 'Clock output (GPOUT0), 12–24 MHz'],
-  ['16', 'GP12', 'SIOD (SCCB data)', '4.7 kΩ pull-up to 3.3 V; I2C0 SDA'], ['17', 'GP13', 'SIOC (SCCB clock)', '4.7 kΩ pull-up to 3.3 V; I2C0 SCL'],
-  ['19', 'GP14', 'RESET (active low)', ''], ['—', 'GND', 'PWDN (active high)', 'Tied to GND: always on'],
-  ['36 / 38', '3V3(OUT) / GND', 'Camera 3V3 / GND', 'The camera is 3.3 V only'],
-  ['21', 'GP16', 'Pan servo signal', 'Hardware PWM, 50 Hz'], ['22', 'GP17', 'Tilt servo signal', 'Hardware PWM, 50 Hz'],
-  ['24', 'GP18', 'Laser enable', '1 kΩ to the base of an NPN (2N2222/S8050); laser (−) to collector, (+) to 5 V'],
-  ['23', 'GND', 'Common ground', 'Joined to the GND of the 5 V servo supply'],
-], [1900, 1500, 2400, 3800]));
+  ['21', 'GP16', 'Upper head – pan', 'Hardware PWM (slice 0A), 50 Hz'], ['22', 'GP17', 'Upper head – tilt', 'Hardware PWM (slice 0B)'],
+  ['24', 'GP18', 'Lower head – pan', 'Hardware PWM (slice 1A)'], ['25', 'GP19', 'Lower head – tilt', 'Hardware PWM (slice 1B)'],
+  ['23', 'GND', 'Common ground', 'Joined to the GND of both 5 V servo supplies'],
+  ['USB', '—', 'Data and power from the Raspberry Pi', 'Product string "DroneLoc Pointer"'],
+], [1500, 1400, 3000, 3700]));
 add(SP());
-add(P([b('Power: '), 'servos and laser from a separate 5 V / 5 A supply with a 1000 µF capacitor across it (two MG995 can draw 2–3 A each when starting or stalled); never from the Pico or the Raspberry Pi. Camera wires shorter than 15 cm (PCLK, XCLK, D0–D7). Connect camera pins by the names printed on the board: the physical order varies between makers.']));
-add(H3('MG995 servos (chosen by the user because of the camera and laser weight)'));
+add(P([b('Power: '), 'each head has its own 5 V / 5 A supply with a 1000 µF capacitor (an MG995 can draw 2–2.5 A when starting or stalled); thick power wires; never power servos from the Pico or the Raspberry Pi. Servo wire colours: signal orange, +5 V red, GND brown.']));
+add(H3('MG995 servos (chosen by the user because of the camera weight)'));
 add(TABLE(['Property', 'Typical value (check the seller page)', 'Consequence'], [
-  ['Supply', '4.8–7.2 V', 'Run at 5 V together with the laser (one 5 V / 5 A supply)'],
-  ['Stall torque', 'about 8.5 kg·cm at 4.8 V, about 10 kg·cm at 6 V', 'Plenty for a small camera and laser'],
-  ['Current', 'a few hundred mA moving, up to about 2–2.5 A starting or stalled', '5 A supply, 1000 µF capacitor, thick power wires'],
+  ['Supply', '4.8–7.2 V', 'Run at 5 V'],
+  ['Stall torque', 'about 8.5 kg·cm at 4.8 V, about 10 kg·cm at 6 V', 'Plenty for one webcam per head'],
+  ['Current', 'a few hundred mA moving, up to about 2–2.5 A starting or stalled', '5 V / 5 A per head, 1000 µF capacitor'],
   ['Speed', 'about 0.2 s per 60°', 'Rate-limit commands; a full sweep takes ~0.6 s'],
-  ['Size / weight', 'about 40 x 20 x 43 mm, 55 g', 'Standard-size bracket, not the SG90/MG90S kit'],
+  ['Size / weight', 'about 40 x 20 x 43 mm, 55 g', 'Metal bracket for standard-size servos'],
   ['Range', 'nominally 180°, many units give less (about 120–170°)', 'Measure the real range: the hemisphere mapping in 6.3 needs 180° on both axes'],
   ['Signal', '50 Hz PWM, about 500–2500 µs; analog servo with a noticeable dead band and some jitter', 'Calibrate the end points per servo; 3.3 V Pico signal usually works, else add a level shifter'],
 ], [1900, 3900, 3800]));
 add(SP());
-add(H2('6.2 Firmware to write (hardware/pico_pointer/)'));
-add(B(['USB CDC device, VID 0x2E8A, product string ', c('"DroneLoc Pointer"'), '.']));
-add(B(['Camera: XCLK from GPOUT0 on GP21 (e.g. ~12 MHz); configure over SCCB (I2C, 7-bit address 0x21) using a known-good OV7670 register table from an open-source project, QQVGA 160x120 YUV422; a PIO program waits for VSYNC/HREF and samples D0–D7 on rising PCLK; DMA into a frame buffer; keep only the Y bytes (grayscale, 19.2 kB per frame).']));
-add(B(['Frame packets to the host, e.g. ', c('"CAMF" | u32 seq | u16 w | u16 h | u8 format | data | u16 checksum'), ', resynchronising on the magic like the audio packets.']));
-add(B(['Commands from the host as text lines, e.g. ', c('P <pan_deg> <tilt_deg>'), ', ', c('L 0|1'), ' (laser), ', c('?'), ' (status). Reply in a separate packet type so binary frames and replies do not mix.']));
-add(B(['Servos: hardware PWM 50 Hz, pulse about 500–2500 µs for 0–180° (calibrate the end points per servo); limit the slew rate; laser off at start-up and whenever no command arrived for a few seconds.']));
-add(H2('6.3 Covering the upper hemisphere with two 180° servos'));
-add(P('Pan 0° points along the array +x axis; tilt 0° is horizontal along the pan direction, 90° straight up, 180° horizontal in the opposite direction. With azimuth az taken in [0°, 360°) and elevation el in [0°, 90°]:'));
-add(B(['az in [0°, 180°): pan = az, tilt = el']));
-add(B(['az in [180°, 360°): pan = az − 180°, tilt = 180° − el (the tilt servo leans back over the top)']));
-add(P(['The live mode prints azimuth in (−180°, 180°]; convert with ', c('az % 360'), '. Directions below the horizon cannot be reached; clamp el at 0°.']));
-add(H2('6.4 Host side to write'));
+add(H2('6.2 Pico 2 firmware to write (hardware/pico_pointer/)'));
+add(B(['USB CDC device, VID 0x2E8A, product string ', c('"DroneLoc Pointer"'), ' (so ', c('find_port()'), ' never confuses it with the microphone Pico).']));
+add(B(['Four hardware PWM outputs at 50 Hz on GP16–GP19; pulse width from a per-servo calibration (end points in µs for 0° and 180°).']));
+add(B(['Text commands, one per line, e.g. ', c('H <head U|L> <pan_deg> <tilt_deg>'), ', ', c('X <head>'), ' (release: stop the pulses so the servo goes limp), ', c('?'), ' (status). Reply with one line per command.']));
+add(B(['Slew-rate limit inside the firmware; release all servos if no command arrived for a few seconds (safe default).']));
+add(B('No camera code on the Pico: the cameras are USB devices on the Raspberry Pi.'));
+add(H2('6.3 Directions to servo angles, and which head moves'));
+add(P('Array frame: x forward, y left, z up; azimuth az = atan2(y, x) taken in [0°, 360°), elevation el in [−90°, 90°]. Pan 0° points along +x; tilt 0° is horizontal along the pan direction, 90° straight up (straight down for the lower head), 180° horizontal in the opposite direction.'));
+add(B(['Upper head (el ≥ 0): az in [0°, 180°): pan = az, tilt = el; az in [180°, 360°): pan = az − 180°, tilt = 180° − el (the tilt servo leans back over the top).']));
+add(B(['Lower head (mounted upside down, i.e. rotated 180° about the x axis): az′ = −az (mod 360), el′ = −el, then the same rule with az′, el′. The calibration decides the real signs and offsets.']));
+add(B(['Head selection with hysteresis: el > +5° → upper head, el < −5° → lower head, in between keep the head in use; park (or release) the idle head.']));
+add(P(['The live mode prints azimuth in (−180°, 180°]; convert with ', c('az % 360'), '. Each head gets its own calibration (zero offsets and the rotation between the array frame and the head frame), stored in a small JSON file.']));
+add(H2('6.4 The cameras: two Logitech Brio 100 (USB, on the Raspberry Pi)'));
+add(B(['Standard UVC webcams, Full HD 1080p. Connect them to the two blue USB 3 ports of the Pi; the two Picos go on the black USB 2 ports. They appear as ', c('/dev/video*'), '; identify each camera by ', c('/dev/v4l/by-id/'), ' (serial number) or by its USB port path in ', c('/dev/v4l/by-path/'), ', not by the video number, which can change between boots.']));
+add(B(['On the 32-bit Pi decode at most 1280x720 (or 640x480) MJPEG at 10–15 fps per camera, so that the audio processing keeps up. OpenCV: ', c('sudo apt install python3-opencv'), ' and a venv created with ', c('--system-site-packages'), ', or ', c('pip install opencv-python-headless'), ' (piwheels).']));
+add(B('Field of view about 58° diagonal (check): at 1280x720 that is about 0.04° per pixel, much finer than the expected acoustic error. Measure degrees per pixel once with a target at a known angle.'));
+add(B('The built-in microphone of the Brio 100 is not used for localization (it runs on a different clock from the array).'));
+add(B('Mount: remove the monitor clip if possible to save weight; align the camera optical axis with the pan/tilt axes (boresight) and record the offset during calibration.'));
+add(H2('6.5 Host side to write'));
 add(...NUMLIST([
-  [c('droneloc live --pointer'), ': send the (smoothed, rate-limited) direction to Pico 2; move only when the change exceeds 2–3°, and preferably between listening windows, because the servos themselves make noise that the array hears. Mount the pan/tilt head at least 50 cm from the sphere (MG995 gears are loud).'],
-  ['Viewer/recorder: show the camera image with a centre mark, overlay az/el, record frames and estimates with timestamps.'],
-  ['Calibration: point at known loudspeaker positions, fit the pan/tilt zero offsets and the rotation between the array frame and the pan/tilt frame; save to a small JSON file used by --pointer.'],
-  ['Error measurement: angular error from the pixel offset of the target to the image centre (degrees per pixel from the lens field of view, measured once with a target at a known angle).'],
+  [c('droneloc live --pointer'), ': send the smoothed, rate-limited direction to Pico 2 with head selection; move only when the change exceeds 2–3°, preferably between listening windows, because four MG995 are loud. Mount the heads at least 50 cm from the sphere.'],
+  ['Viewer/recorder for both cameras: centre mark, az/el overlay, recording of frames and estimates with timestamps.'],
+  ['Calibration per head: point at known loudspeaker positions, fit pan/tilt offsets, direction signs and the frame rotation; save to JSON.'],
+  ['Error measurement: angular error from the pixel offset of the target to the image centre (simple marker or LED on the loudspeaker indoors; drone detection outdoors).'],
 ]));
-add(H2('6.5 Shopping list for this part'));
+add(H2('6.6 Shopping list for this part'));
 add(TABLE(['Part', 'Qty', 'Notes'], [
-  ['Pan/tilt bracket for standard-size servos (MG995/MG996R), metal', '1', 'Must carry camera + laser'], ['MG995 servo (metal gears)', '2 (+1 spare)', 'Chosen by the user; MG996R is the improved successor'],
-  ['Red laser module 650 nm, < 1 mW', '1', 'Indoor tests only'], ['NPN transistor 2N2222 or S8050, 1 kΩ resistor', '1 each', 'Laser switch'],
-  ['5 V / 5 A supply and 1000 µF / 16 V capacitor', '1 each', 'Servo and laser power (not 6 V: the laser module is 3–5 V)'],
-  ['2 x 4.7 kΩ resistors', '2', 'SCCB pull-ups (many blue OV7670 boards lack them)'],
-  ['Second Raspberry Pi Pico (RP2040)', '1', 'Keeps camera and servos off the audio Pico'],
-  ['Short female–female Dupont wires', '~25', 'Camera to Pico, under 15 cm'],
-  ['Optional: USB webcam', '1', 'Better than OV7670 for outdoor tests; plugs into the Pi directly'],
+  ['Metal pan/tilt bracket for standard-size servos (MG995/MG996R)', '2', 'One per head'],
+  ['MG995 servo (metal gears)', '4 (+1 spare)', 'Chosen by the user; MG996R is the improved successor'],
+  ['5 V / 5 A supply and 1000 µF / 16 V capacitor', '2 each', 'One per head'],
+  ['Second Raspberry Pi Pico (RP2040)', '1', 'Servo controller; keeps servo noise off the audio Pico'],
+  ['Logitech Brio 100 webcam', '2', 'Owned by the user'],
+  ['Thick power wire, Dupont wires, terminal blocks', '—', 'Servo power and signals'],
 ], [4600, 1600, 3400]));
 
 // ======================================================= 7
@@ -240,7 +241,7 @@ add(H1('7. Open items, in order'));
 add(...NUMLIST([
   'Bring up Pico 1 with two microphones, then all twelve; verify synchronisation and channel order (section 4.3).',
   'Real-array test with a loudspeaker at known directions (evaluate-array) and in live mode; record the timing on the Pi with experiments/profile_live.py using five references.',
-  'Write the Pico 2 firmware and the host side (section 6), test indoors with a loudspeaker and the laser.',
+  'Write the Pico 2 firmware and the host side for the two heads and cameras (section 6); test indoors with a loudspeaker.',
   'If the Pi is too slow with five references: speed up reference cancellation and cross-spectra in the live path only (keep the published path unchanged).',
   'Kalman tracking (direction and range) in live mode.',
   'Later: BNO085 IMU on the Pi (I2C; note the known BNO08x clock-stretching issue on the Raspberry Pi) to convert directions to earth axes.',
