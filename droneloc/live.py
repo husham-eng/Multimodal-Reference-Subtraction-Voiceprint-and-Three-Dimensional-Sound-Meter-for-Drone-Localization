@@ -162,7 +162,8 @@ def wav_bytes(path: Path, realtime: bool = False, nf: int = 64) -> Iterator[byte
 
 
 def run(source: Iterator[bytes], positions: np.ndarray, seconds: float | None = None,
-        log: Path | None = None, quiet: bool = False, **kw) -> list[dict]:
+        log: Path | None = None, quiet: bool = False, on_estimate=None, **kw) -> list[dict]:
+    """on_estimate: optional callable(row) for every estimate, e.g. to aim the camera heads."""
     rd, loc, rows = PacketReader(), None, []
     writer = None
     f = open(log, "w", newline="") if log else None
@@ -180,6 +181,8 @@ def run(source: Iterator[bytes], positions: np.ndarray, seconds: float | None = 
             # everything from one read at once, so a computer that fell behind can skip ahead
             for r in loc.push(np.concatenate([p[3] for p in packets])):
                 rows.append(r)
+                if on_estimate is not None and r["azimuth_deg"] is not None:
+                    on_estimate(r)
                 if f and writer is None:
                     writer = csv.DictWriter(f, fieldnames=list(r)); writer.writeheader()
                 if writer:

@@ -1,6 +1,6 @@
 # Briefing for Claude Code on the Raspberry Pi
 
-Acoustic drone localization: hardware bring-up of the microphone array, two USB cameras and two pan/tilt heads. Updated 1 November 2026; branch `claude/epic-ride-9fqd2p`. Figures carry Arabic labels; the text below describes them fully.
+Acoustic drone localization: hardware bring-up of the microphone array, two USB cameras, two pan/tilt heads and two orientation sensors. Updated 18 November 2026; branch `claude/epic-ride-9fqd2p`. The user-facing step-by-step session plan (Arabic) is docs/reports/Pi_Session_Runbook_AR.docx. Figures carry Arabic labels; the text below describes them fully.
 
 ## 1. Read this first
 
@@ -14,7 +14,7 @@ You are helping Dr. Husham Saied (the user) bring up the hardware of an acoustic
 
 - Keep the code Python 3.9 compatible and working on 32-bit ARM (the current Pi OS is armhf).
 
-- Run python -m pytest tests after changes (22 tests; about 4 minutes on the Pi).
+- Run python -m pytest tests after changes (25 tests; about 4 minutes on the Pi).
 
 - Safety: servos on their own 5 V supplies (one per head), never from the Pico or the Pi; keep hands clear of the heads while they move.
 
@@ -61,13 +61,13 @@ Two Raspberry Pi Pico boards (RP2040) and two USB webcams, each on its own USB c
 
 **Figure 1. System overview (labels in Arabic).**
 
-|                  | **Pico 1 – audio**                                                          | **Pico 2 – servo controller**                    |
-|------------------|-----------------------------------------------------------------------------|--------------------------------------------------|
-| Firmware         | hardware/pico_mic_array/pico_mic_array.uf2 (built, not yet run on hardware) | **Not written yet (section 6)**                  |
-| USB product name | DroneLoc Mic Array                                                          | DroneLoc Pointer (planned)                       |
-| To the Pi        | 12 audio channels, 15625 Hz, int16 (375 kB/s)                               | Short status replies                             |
-| From the Pi      | Nothing (streams while the port is open, DTR set)                           | Pan/tilt angles for the two heads                |
-| Attached         | 12 x INMP441 I2S microphones                                                | 4 x MG995 servos (upper and lower pan/tilt head) |
+|                  | **Pico 1 – audio**                                                          | **Pico 2 – servo controller**                                           |
+|------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| Firmware         | hardware/pico_mic_array/pico_mic_array.uf2 (built, not yet run on hardware) | hardware/pico_pointer/pico_pointer.uf2 (built, not yet run on hardware) |
+| USB product name | DroneLoc Mic Array                                                          | DroneLoc Pointer                                                        |
+| To the Pi        | 12 audio channels, 15625 Hz, int16 (375 kB/s)                               | Short status replies                                                    |
+| From the Pi      | Nothing (streams while the port is open, DTR set)                           | Pan/tilt angles for the two heads                                       |
+| Attached         | 12 x INMP441 I2S microphones                                                | 4 x MG995 servos (upper and lower pan/tilt head)                        |
 
 **Port detection:** droneloc.pico.find_port(product="DroneLoc Mic Array") picks the port by USB product name and falls back to the first Raspberry Pi vendor id (0x2E8A) port. Give Pico 2 a different product string so the two are never confused.
 
@@ -180,7 +180,7 @@ python -m droneloc live (droneloc/live.py) reads the Pico USB stream (or a WAV f
 
 **Tried and rejected:** cancelling directly in the GCC STFT domain without overlap-add resynthesis (145° error, as bad as no cancellation).
 
-## 6. Pico 2, two pan/tilt heads and two USB cameras (to be implemented)
+## 6. Pico 2, two pan/tilt heads, two USB cameras and the orientation sensors
 
 Purpose: a visual and quantitative check of the acoustic direction estimate, and a tool to calibrate the array alignment. Each head carries a camera and points along the estimated direction; if the estimate is right, the sound source (a loudspeaker indoors, the drone outdoors) appears at the image centre, and its pixel offset gives the angular error in degrees. The upper head covers the upper hemisphere; the lower head, mounted upside down, covers the lower hemisphere. There is no laser in the current design.
 
@@ -213,17 +213,19 @@ Purpose: a visual and quantitative check of the acoustic direction estimate, and
 | Range         | nominally 180°, many units give less (about 120–170°)                                  | Measure the real range: the hemisphere mapping in 6.3 needs 180° on both axes                 |
 | Signal        | 50 Hz PWM, about 500–2500 µs; analog servo with a noticeable dead band and some jitter | Calibrate the end points per servo; 3.3 V Pico signal usually works, else add a level shifter |
 
-### 6.2 Pico 2 firmware to write (hardware/pico_pointer/)
+### 6.2 Pico 2 firmware (hardware/pico_pointer/, written 18 November 2026, not yet run on hardware)
 
-- USB CDC device, VID 0x2E8A, product string "DroneLoc Pointer" (so find_port() never confuses it with the microphone Pico).
+- Built: hardware/pico_pointer/pico_pointer.uf2 (pico-sdk 2.1.1). USB CDC device, VID 0x2E8A, product string "DroneLoc Pointer". Host-side unit test of the command logic: cc -Itest test/test_main.c -o t && ./t in that folder.
 
-- Four hardware PWM outputs at 50 Hz on GP16–GP19; pulse width from a per-servo calibration (end points in µs for 0° and 180°).
+- Four hardware PWM outputs at 50 Hz on GP16–GP19 (1 MHz counter, compare level = pulse width in µs). Channels: 0 upper pan, 1 upper tilt, 2 lower pan, 3 lower tilt.
 
-- Text commands, one per line, e.g. H <head U\|L> <pan_deg> <tilt_deg>, X <head> (release: stop the pulses so the servo goes limp), ? (status). Reply with one line per command.
+- **Safety:** all channels released (no pulses) at power-up; default limits 1200–1800 µs until calibrated (absolute 500–2500); slew rate 300 µs/s; watchdog releases everything after 5 s without a command (P pings keep it alive).
 
-- Slew-rate limit inside the firmware; release all servos if no command arrived for a few seconds (safe default).
+- Commands (one per line; replies "OK ..." / "ERR ..."): ? status (5 lines), S <ch> <us>, A <ch> <deg> (0–180 over min..max), H <U\|L> <pan> <tilt>, X <ch\|\*> release, LIM <ch> <min> <max>, RATE <us_per_s>, T <s> watchdog (0 = off), P ping.
 
-- No camera code on the Pico: the cameras are USB devices on the Raspberry Pi.
+- Host side: droneloc/pointer.py (mapping, head selection, calibration JSON, serial client) and python -m droneloc pointer {status,servo,angle,point,release,init-cal} \[values\] \[--hold s\] \[--cal pointer_cal.json\]; live mode: --pointer \[--pointer-cal\] \[--range m\].
+
+- **User report:** some servo test codes made servos spin 360° continuously. A positional 180° servo cannot do that, so those units are probably continuous-rotation MG995 variants (unusable for pointing) or damaged. The runbook asks the user to hand-test each servo unpowered first.
 
 ### 6.3 Directions to servo angles, and which head moves
 
@@ -234,6 +236,8 @@ Array frame: x forward, y left, z up; azimuth az = atan2(y, x) taken in \[0°, 3
 - Lower head (mounted upside down, i.e. rotated 180° about the x axis): az′ = −az (mod 360), el′ = −el, then the same rule with az′, el′. The calibration decides the real signs and offsets.
 
 - Head selection with hysteresis: el > +5° → upper head, el < −5° → lower head, in between keep the head in use; park (or release) the idle head.
+
+- Branch hysteresis: near az = 0° or 180° both branches point the same way but differ by a 180° pan swing; the branch in use is kept while the pan stays within 5° outside 0–180° (clipped). Parallax: with a range, the head aims at the point r away from the sphere, using the head position in the calibration file.
 
 The live mode prints azimuth in (−180°, 180°\]; convert with az % 360. Each head gets its own calibration (zero offsets and the rotation between the array frame and the head frame), stored in a small JSON file.
 
@@ -249,9 +253,9 @@ The live mode prints azimuth in (−180°, 180°\]; convert with az % 360. Each 
 
 - Mount: remove the monitor clip if possible to save weight; align the camera optical axis with the pan/tilt axes (boresight) and record the offset during calibration.
 
-### 6.5 Host side to write
+### 6.5 Host side still to write
 
-1.  droneloc live --pointer: send the smoothed, rate-limited direction to Pico 2 with head selection; move only when the change exceeds 2–3°, preferably between listening windows, because four MG995 are loud. Mount the heads at least 50 cm from the sphere.
+1.  droneloc live --pointer exists (moves only when the change exceeds 2.5°, pings otherwise). Still to add: move only between listening windows, because four MG995 are loud; mount the heads at least 50 cm from the sphere.
 
 2.  Viewer/recorder for both cameras: centre mark, az/el overlay, recording of frames and estimates with timestamps.
 
@@ -270,18 +274,37 @@ The live mode prints azimuth in (−180°, 180°\]; convert with az % 360. Each 
 | Logitech Brio 100 webcam                                       | 2            | Owned by the user                                      |
 | Thick power wire, Dupont wires, terminal blocks                | —            | Servo power and signals                                |
 
+### 6.7 Orientation sensors (python -m droneloc imu, droneloc/imu.py)
+
+The user owns one BNO085 and, among others, a GY-521 (MPU-6050), GY-291 (ADXL345), GY-273 (HMC5883L), HW-290 (likely a GY-87: MPU-6050 + HMC5883L + BMP180) and an MLX90393. No new purchase.
+
+![figure](../figures_ar/imu_wiring.png)
+
+**Figure 5. Orientation sensors on the Raspberry Pi header.**
+
+| **Sensor**                                        | **Where**                                        | **Connection**                                                                               | **Gives**                                  |
+|---------------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------|--------------------------------------------|
+| BNO085 (Adafruit 4754), UART-RVC mode (P0 to 3V3) | On the sphere, axes parallel to x, y, z          | VIN → pin 1 (3V3), GND → pin 6, SDA (RVC output) → pin 10 (GPIO15 RXD); /dev/serial0, 115200 | Yaw, pitch, roll at 100 Hz (fused)         |
+| MPU-6050 (GY-521)                                 | Fixed base of the two heads, not on moving parts | VCC → pin 17 (3V3), GND → pin 9, SDA → pin 3, SCL → pin 5, AD0 → GND (0x68)                  | Roll, pitch from gravity; gyro shows bumps |
+
+- No compass on the heads: the MG995 magnets and currents would distort it; the heads' yaw comes from the camera calibration and the MPU-6050 watches for tilt or bumps.
+
+- RVC frame: 0xAA 0xAA, index, yaw/pitch/roll int16 \[0.01°\], ax/ay/az int16 \[mg\], 3 reserved, checksum = sum of bytes 2..17 mod 256 (parse_rvc, tested). Pi set-up: raspi-config → I2C on, serial port hardware on, login shell off; pip install smbus2.
+
+- Verify against the Adafruit 4754 guide that the RVC output is the SDA pin and that P0 selects RVC before wiring.
+
 ## 7. Open items, in order
 
 1.  Bring up Pico 1 with two microphones, then all twelve; verify synchronisation and channel order (section 4.3).
 
 2.  Real-array test with a loudspeaker at known directions (evaluate-array) and in live mode; record the timing on the Pi with experiments/profile_live.py using five references.
 
-3.  Write the Pico 2 firmware and the host side for the two heads and cameras (section 6); test indoors with a loudspeaker.
+3.  Bring up Pico 2 (one servo at a time, measured limits into pointer_cal.json), the cameras and the two orientation sensors, following docs/reports/Pi_Session_Runbook_AR.docx; then calibrate the heads and write the camera viewer and error measurement (6.5).
 
 4.  If the Pi is too slow with five references: speed up reference cancellation and cross-spectra in the live path only (keep the published path unchanged).
 
 5.  Kalman tracking (direction and range) in live mode.
 
-6.  Later: BNO085 IMU on the Pi (I2C; note the known BNO08x clock-stretching issue on the Raspberry Pi) to convert directions to earth axes.
+6.  Use the sensor readings in the pointer: rotate directions from the sphere frame (BNO085) to the heads frame (calibrated yaw + MPU-6050 tilt).
 
 7.  Merge claude/epic-ride-9fqd2p into main via a pull request when the user asks.

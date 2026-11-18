@@ -1,7 +1,8 @@
 const fs = require('fs');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType,
         ShadingType, BorderStyle, ImageRun, LevelFormat, PageBreak, Footer, PageNumber } = require('docx');
-const FIG = '/home/user/drone/docs/figures_ar/', HW = '/home/user/drone/hardware/pico_mic_array/';
+const path = require('path'), ROOT = path.resolve(__dirname, '..', '..');
+const FIG = path.join(ROOT, 'docs', 'figures_ar') + '/', HW = path.join(ROOT, 'hardware', 'pico_mic_array') + '/';
 const F = 'Arial', MONO = 'Consolas';
 
 // ---- inline runs: string | {t, b, i, code, c}
@@ -45,7 +46,7 @@ const add = (...xs) => xs.forEach(x => Array.isArray(x) ? body.push(...x) : body
 // ======================================================= Arabic cover note
 add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: runs(b('Briefing for Claude Code on the Raspberry Pi'), { size: 40, color: '1F3864' }) }));
 add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: runs('Acoustic drone localization — hardware bring-up: microphone array, two USB cameras, two pan/tilt heads', { size: 24, color: '555555' }) }));
-add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Updated 1 November 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch claude/epic-ride-9fqd2p', { size: 18, color: '777777' }) }));
+add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Updated 18 November 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch claude/epic-ride-9fqd2p', { size: 18, color: '777777' }) }));
 add(new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: runs(b('ملاحظة لك (د. هشام):'), { size: 28, color: '1F3864' }, true) }));
 add(AR('هذا الملف موجّه إلى Claude Code الذي سيعمل على الراسبيري باي بعد أن تُكمل بناء الدائرة. يشرح له كل ما أُضيف: الدائرة، والأطراف، والبرامج، وما جُرّب وما لم يُجرَّب بعد، وخطوات التشغيل والاختبار. بهذا لا تحتاج أن تشرح من جديد.'));
 add(AR('الجزء التقني مكتوب بالإنجليزية لأن Claude Code يتعامل معها بأعلى دقة، خصوصاً مع أسماء الأطراف والأوامر. وهو يفهم العربية، فاكتب له طلباتك بالعربية كالمعتاد.'));
@@ -68,7 +69,7 @@ add(P(b('Ground rules:')));
 add(B(['The software side is written and tested in simulation; ', b('none of the firmware has run on real hardware yet'), '. Expect bring-up issues and debug them step by step, starting with two microphones.']));
 add(B(['Do not change the exact estimation path that produced the published results (', c('main'), ' = release 2.1.0, Zenodo DOI 10.5281/zenodo.23151340). Speed-ups for the Pi go behind options such as ', c('PhaseSRP(fast=True)'), ', which only the live mode uses.']));
 add(B(['Keep the code Python 3.9 compatible and working on 32-bit ARM (the current Pi OS is armhf).']));
-add(B(['Run ', c('python -m pytest tests'), ' after changes (22 tests; about 4 minutes on the Pi).']));
+add(B(['Run ', c('python -m pytest tests'), ' after changes (25 tests; about 4 minutes on the Pi).']));
 add(B(['Safety: servos on their own 5 V supplies (one per head), never from the Pico or the Pi; keep hands clear of the heads while they move.']));
 
 // ======================================================= 2
@@ -99,8 +100,8 @@ add(H1('3. Hardware architecture'));
 add(P('Two Raspberry Pi Pico boards (RP2040) and two USB webcams, each on its own USB cable to the Raspberry Pi (assumed to be a Raspberry Pi 4: Picos on the two black USB 2 ports, cameras on the two blue USB 3 ports). There are no other wires between these devices and the Pi. Each Pico is powered by its USB cable; each pan/tilt head has its own 5 V supply whose ground is joined to the ground of Pico 2.'));
 add(...IMG(FIG + 'system_overview.png', 600, 'Figure 1. System overview (labels in Arabic).'));
 add(TABLE(['', 'Pico 1 – audio', 'Pico 2 – servo controller'], [
-  ['Firmware', [c('hardware/pico_mic_array/pico_mic_array.uf2'), ' (built, not yet run on hardware)'], b('Not written yet (section 6)')],
-  ['USB product name', c('DroneLoc Mic Array'), [c('DroneLoc Pointer'), ' (planned)']],
+  ['Firmware', [c('hardware/pico_mic_array/pico_mic_array.uf2'), ' (built, not yet run on hardware)'], [c('hardware/pico_pointer/pico_pointer.uf2'), ' (built, not yet run on hardware)']],
+  ['USB product name', c('DroneLoc Mic Array'), c('DroneLoc Pointer')],
   ['To the Pi', '12 audio channels, 15625 Hz, int16 (375 kB/s)', 'Short status replies'],
   ['From the Pi', 'Nothing (streams while the port is open, DTR set)', 'Pan/tilt angles for the two heads'],
   ['Attached', '12 x INMP441 I2S microphones', '4 x MG995 servos (upper and lower pan/tilt head)'],
@@ -178,7 +179,7 @@ add(P([b('Accuracy in simulation: '), 'median error below 1° without machinery 
 add(P([b('Tried and rejected: '), 'cancelling directly in the GCC STFT domain without overlap-add resynthesis (145° error, as bad as no cancellation).']));
 
 // ======================================================= 6
-add(H1('6. Pico 2, two pan/tilt heads and two USB cameras (to be implemented)'));
+add(H1('6. Pico 2, two pan/tilt heads, two USB cameras and the orientation sensors'));
 add(P('Purpose: a visual and quantitative check of the acoustic direction estimate, and a tool to calibrate the array alignment. Each head carries a camera and points along the estimated direction; if the estimate is right, the sound source (a loudspeaker indoors, the drone outdoors) appears at the image centre, and its pixel offset gives the angular error in degrees. The upper head covers the upper hemisphere; the lower head, mounted upside down, covers the lower hemisphere. There is no laser in the current design.'));
 add(...IMG(FIG + 'pico2_servo_wiring.png', 600, 'Figure 4. Pico 2 wiring: four MG995 servos in two heads, one 5 V / 5 A supply per head.'));
 add(H2('6.1 Pin assignment (Pico 2)'));
@@ -201,17 +202,19 @@ add(TABLE(['Property', 'Typical value (check the seller page)', 'Consequence'], 
   ['Signal', '50 Hz PWM, about 500–2500 µs; analog servo with a noticeable dead band and some jitter', 'Calibrate the end points per servo; 3.3 V Pico signal usually works, else add a level shifter'],
 ], [1900, 3900, 3800]));
 add(SP());
-add(H2('6.2 Pico 2 firmware to write (hardware/pico_pointer/)'));
-add(B(['USB CDC device, VID 0x2E8A, product string ', c('"DroneLoc Pointer"'), ' (so ', c('find_port()'), ' never confuses it with the microphone Pico).']));
-add(B(['Four hardware PWM outputs at 50 Hz on GP16–GP19; pulse width from a per-servo calibration (end points in µs for 0° and 180°).']));
-add(B(['Text commands, one per line, e.g. ', c('H <head U|L> <pan_deg> <tilt_deg>'), ', ', c('X <head>'), ' (release: stop the pulses so the servo goes limp), ', c('?'), ' (status). Reply with one line per command.']));
-add(B(['Slew-rate limit inside the firmware; release all servos if no command arrived for a few seconds (safe default).']));
-add(B('No camera code on the Pico: the cameras are USB devices on the Raspberry Pi.'));
+add(H2('6.2 Pico 2 firmware (hardware/pico_pointer/, written 18 November 2026, not yet run on hardware)'));
+add(B(['Built: ', c('hardware/pico_pointer/pico_pointer.uf2'), ' (pico-sdk 2.1.1). USB CDC device, VID 0x2E8A, product string ', c('"DroneLoc Pointer"'), '. Host-side unit test of the command logic: ', c('cc -Itest test/test_main.c -o t && ./t'), ' in that folder.']));
+add(B('Four hardware PWM outputs at 50 Hz on GP16–GP19 (1 MHz counter, compare level = pulse width in µs). Channels: 0 upper pan, 1 upper tilt, 2 lower pan, 3 lower tilt.'));
+add(B([b('Safety: '), 'all channels released (no pulses) at power-up; default limits 1200–1800 µs until calibrated (absolute 500–2500); slew rate 300 µs/s; watchdog releases everything after 5 s without a command (', c('P'), ' pings keep it alive).']));
+add(B(['Commands (one per line; replies "OK ..." / "ERR ..."): ', c('?'), ' status (5 lines), ', c('S <ch> <us>'), ', ', c('A <ch> <deg>'), ' (0–180 over min..max), ', c('H <U|L> <pan> <tilt>'), ', ', c('X <ch|*>'), ' release, ', c('LIM <ch> <min> <max>'), ', ', c('RATE <us_per_s>'), ', ', c('T <s>'), ' watchdog (0 = off), ', c('P'), ' ping.']));
+add(B(['Host side: ', c('droneloc/pointer.py'), ' (mapping, head selection, calibration JSON, serial client) and ', c('python -m droneloc pointer {status,servo,angle,point,release,init-cal} [values] [--hold s] [--cal pointer_cal.json]'), '; live mode: ', c('--pointer [--pointer-cal] [--range m]'), '.']));
+add(B([b('User report: '), 'some servo test codes made servos spin 360° continuously. A positional 180° servo cannot do that, so those units are probably continuous-rotation MG995 variants (unusable for pointing) or damaged. The runbook asks the user to hand-test each servo unpowered first.']));
 add(H2('6.3 Directions to servo angles, and which head moves'));
 add(P('Array frame: x forward, y left, z up; azimuth az = atan2(y, x) taken in [0°, 360°), elevation el in [−90°, 90°]. Pan 0° points along +x; tilt 0° is horizontal along the pan direction, 90° straight up (straight down for the lower head), 180° horizontal in the opposite direction.'));
 add(B(['Upper head (el ≥ 0): az in [0°, 180°): pan = az, tilt = el; az in [180°, 360°): pan = az − 180°, tilt = 180° − el (the tilt servo leans back over the top).']));
 add(B(['Lower head (mounted upside down, i.e. rotated 180° about the x axis): az′ = −az (mod 360), el′ = −el, then the same rule with az′, el′. The calibration decides the real signs and offsets.']));
 add(B(['Head selection with hysteresis: el > +5° → upper head, el < −5° → lower head, in between keep the head in use; park (or release) the idle head.']));
+add(B(['Branch hysteresis: near az = 0° or 180° both branches point the same way but differ by a 180° pan swing; the branch in use is kept while the pan stays within 5° outside 0–180° (clipped). Parallax: with a range, the head aims at the point r away from the sphere, using the head position in the calibration file.']));
 add(P(['The live mode prints azimuth in (−180°, 180°]; convert with ', c('az % 360'), '. Each head gets its own calibration (zero offsets and the rotation between the array frame and the head frame), stored in a small JSON file.']));
 add(H2('6.4 The cameras: two Logitech Brio 100 (USB, on the Raspberry Pi)'));
 add(B(['Standard UVC webcams, Full HD 1080p. Connect them to the two blue USB 3 ports of the Pi; the two Picos go on the black USB 2 ports. They appear as ', c('/dev/video*'), '; identify each camera by ', c('/dev/v4l/by-id/'), ' (serial number) or by its USB port path in ', c('/dev/v4l/by-path/'), ', not by the video number, which can change between boots.']));
@@ -219,9 +222,9 @@ add(B(['On the 32-bit Pi decode at most 1280x720 (or 640x480) MJPEG at 10–15 f
 add(B('Field of view about 58° diagonal (check): at 1280x720 that is about 0.04° per pixel, much finer than the expected acoustic error. Measure degrees per pixel once with a target at a known angle.'));
 add(B('The built-in microphone of the Brio 100 is not used for localization (it runs on a different clock from the array).'));
 add(B('Mount: remove the monitor clip if possible to save weight; align the camera optical axis with the pan/tilt axes (boresight) and record the offset during calibration.'));
-add(H2('6.5 Host side to write'));
+add(H2('6.5 Host side still to write'));
 add(...NUMLIST([
-  [c('droneloc live --pointer'), ': send the smoothed, rate-limited direction to Pico 2 with head selection; move only when the change exceeds 2–3°, preferably between listening windows, because four MG995 are loud. Mount the heads at least 50 cm from the sphere.'],
+  [c('droneloc live --pointer'), ' exists (moves only when the change exceeds 2.5°, pings otherwise). Still to add: move only between listening windows, because four MG995 are loud; mount the heads at least 50 cm from the sphere.'],
   ['Viewer/recorder for both cameras: centre mark, az/el overlay, recording of frames and estimates with timestamps.'],
   ['Calibration per head: point at known loudspeaker positions, fit pan/tilt offsets, direction signs and the frame rotation; save to JSON.'],
   ['Error measurement: angular error from the pixel offset of the target to the image centre (simple marker or LED on the loudspeaker indoors; drone detection outdoors).'],
@@ -236,15 +239,27 @@ add(TABLE(['Part', 'Qty', 'Notes'], [
   ['Thick power wire, Dupont wires, terminal blocks', '—', 'Servo power and signals'],
 ], [4600, 1600, 3400]));
 
+add(H2('6.7 Orientation sensors (python -m droneloc imu, droneloc/imu.py)'));
+add(P('The user owns one BNO085 and, among others, a GY-521 (MPU-6050), GY-291 (ADXL345), GY-273 (HMC5883L), HW-290 (likely a GY-87: MPU-6050 + HMC5883L + BMP180) and an MLX90393. No new purchase.'));
+add(...IMG(FIG + 'imu_wiring.png', 560, 'Figure 5. Orientation sensors on the Raspberry Pi header.'));
+add(TABLE(['Sensor', 'Where', 'Connection', 'Gives'], [
+  ['BNO085 (Adafruit 4754), UART-RVC mode (P0 to 3V3)', 'On the sphere, axes parallel to x, y, z', 'VIN → pin 1 (3V3), GND → pin 6, SDA (RVC output) → pin 10 (GPIO15 RXD); /dev/serial0, 115200', 'Yaw, pitch, roll at 100 Hz (fused)'],
+  ['MPU-6050 (GY-521)', 'Fixed base of the two heads, not on moving parts', 'VCC → pin 17 (3V3), GND → pin 9, SDA → pin 3, SCL → pin 5, AD0 → GND (0x68)', 'Roll, pitch from gravity; gyro shows bumps'],
+], [2700, 2200, 3100, 1600]));
+add(SP());
+add(B('No compass on the heads: the MG995 magnets and currents would distort it; the heads\' yaw comes from the camera calibration and the MPU-6050 watches for tilt or bumps.'));
+add(B(['RVC frame: 0xAA 0xAA, index, yaw/pitch/roll int16 [0.01°], ax/ay/az int16 [mg], 3 reserved, checksum = sum of bytes 2..17 mod 256 (', c('parse_rvc'), ', tested). Pi set-up: raspi-config → I2C on, serial port hardware on, login shell off; ', c('pip install smbus2'), '.']));
+add(B('Verify against the Adafruit 4754 guide that the RVC output is the SDA pin and that P0 selects RVC before wiring.'));
+
 // ======================================================= 7
 add(H1('7. Open items, in order'));
 add(...NUMLIST([
   'Bring up Pico 1 with two microphones, then all twelve; verify synchronisation and channel order (section 4.3).',
   'Real-array test with a loudspeaker at known directions (evaluate-array) and in live mode; record the timing on the Pi with experiments/profile_live.py using five references.',
-  'Write the Pico 2 firmware and the host side for the two heads and cameras (section 6); test indoors with a loudspeaker.',
+  'Bring up Pico 2 (one servo at a time, measured limits into pointer_cal.json), the cameras and the two orientation sensors, following docs/reports/Pi_Session_Runbook_AR.docx; then calibrate the heads and write the camera viewer and error measurement (6.5).',
   'If the Pi is too slow with five references: speed up reference cancellation and cross-spectra in the live path only (keep the published path unchanged).',
   'Kalman tracking (direction and range) in live mode.',
-  'Later: BNO085 IMU on the Pi (I2C; note the known BNO08x clock-stretching issue on the Raspberry Pi) to convert directions to earth axes.',
+  'Use the sensor readings in the pointer: rotate directions from the sphere frame (BNO085) to the heads frame (calibrated yaw + MPU-6050 tilt).',
   'Merge claude/epic-ride-9fqd2p into main via a pull request when the user asks.',
 ]));
 
@@ -262,4 +277,4 @@ const doc = new Document({
   sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1080, bottom: 1080, left: 1150, right: 1150 } } },
     footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ children: [PageNumber.CURRENT], font: F, size: 18, color: '888888' })] })] }) },
     children: body }] });
-Packer.toBuffer(doc).then(buf => { fs.writeFileSync('/home/user/drone/docs/reports/Claude_Code_Briefing.docx', buf); console.log('written'); });
+Packer.toBuffer(doc).then(buf => { fs.writeFileSync(path.join(ROOT, 'docs', 'reports', 'Claude_Code_Briefing.docx'), buf); console.log('written'); });

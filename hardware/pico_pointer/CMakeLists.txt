@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 3.13)
+include(pico_sdk_import.cmake)
+project(pico_pointer C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+pico_sdk_init()
+
+add_executable(pico_pointer main.c usb_descriptors.c)
+target_include_directories(pico_pointer PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(pico_pointer PRIVATE pico_stdlib pico_unique_id hardware_pwm tinyusb_device)
+pico_add_extra_outputs(pico_pointer)

@@ -257,3 +257,51 @@ def test_find_port_prefers_product_name(monkeypatch):
     assert find_port("DroneLoc Pointer") == "/dev/ttyACM0"
     monkeypatch.setattr(list_ports, "comports", lambda: ports[:1] + [SimpleNamespace(vid=0x1234, product=None, device="x")])
     assert find_port() == "/dev/ttyACM0"                                   # fallback: first Pico
+
+
+def test_pointer_hemisphere_mapping():
+    from droneloc.pointer import Calibration, HeadSelector, head_command, hemisphere_angles
+    ap = lambda t: tuple(round(v, 6) for v in t)  # noqa: E731
+    assert ap(hemisphere_angles(30, 20)) == (30, 20, 0)
+    assert ap(hemisphere_angles(-90, 20)) == (90, 160, 1)       # az 270: tilt leans back over the top
+    assert hemisphere_angles(10, -5)[1] == 0                    # below the horizon is clamped
+    # jitter around az = 0 keeps the branch in use instead of swinging the pan by 180 deg
+    assert ap(hemisphere_angles(-2, 20, prefer=0)) == (0, 20, 0)
+    assert ap(hemisphere_angles(-2, 20, prefer=1)) == (178, 160, 1)
+    assert hemisphere_angles(-20, 20, prefer=0)[2] == 1         # far outside the margin: switch
+    cal = Calibration()
+    assert ap(head_command(30, 20, "U", cal)) == (30, 20, 0)
+    assert ap(head_command(30, -20, "L", cal)) == (150, 160, 1)  # upside down: sees az -30, el +20
+    sel = HeadSelector(5)
+    assert [sel(e) for e in (20, 3, -3, -10, -2, 4, 8)] == ["U", "U", "U", "L", "L", "L", "U"]
+
+
+def test_pointer_parallax_and_calibration(tmp_path):
+    from droneloc.pointer import Calibration, head_command
+    cal = Calibration(upper_pos_m=[0.0, 0.5, 0.0])            # head 0.5 m to the left of the sphere
+    pan, tilt, br = head_command(0, 10, "U", cal, range_m=3)  # target 3 m ahead is 9.6 deg to the head's right
+    assert br == 1 and abs(pan - 170.4) < 0.3 and abs(tilt - 170.1) < 0.3
+    pan, tilt, br = head_command(0, 10, "U", cal, range_m=3, prefer=0)
+    assert br == 1                                            # 9.6 deg is beyond the 5 deg margin
+    assert abs(head_command(0, 10, "U", cal, range_m=100, prefer=0)[0]) < 0.5
+    cal.upper.pan_offset_deg, cal.upper.pan_sign = 180, -1    # pan servo mounted turning the other way
+    assert round(head_command(30, 20, "U", cal)[0], 6) == 150
+    cal.save(tmp_path / "cal.json")
+    again = Calibration.load(tmp_path / "cal.json")
+    assert again.upper.pan_sign == -1 and again.upper_pos_m == [0.0, 0.5, 0.0]
+
+
+def test_imu_rvc_parser_and_tilt():
+    from droneloc.imu import make_rvc, parse_rvc, tilt_from_acc
+    f1, f2 = make_rvc(1, 12.34, -5.6, 1.5), make_rvc(2, -170.0, 2.0, -3.0, (0.1, 0.0, 0.99))
+    bad = bytearray(make_rvc(3, 1, 1, 1)); bad[5] ^= 0xFF
+    buf = bytearray(b"\x00\xaa" + f1 + bytes(bad) + f2[:7])
+    out = parse_rvc(buf)
+    assert [round(o["yaw"], 2) for o in out] == [12.34]
+    buf += f2[7:]
+    out = parse_rvc(buf)
+    assert len(out) == 1 and out[0]["index"] == 2 and out[0]["acc_g"][0] == 0.1
+    roll, pitch = tilt_from_acc(0.0, 0.0, 1.0)
+    assert roll == 0 and pitch == 0
+    roll, pitch = tilt_from_acc(-0.5, 0.0, 0.866)
+    assert abs(pitch - 30) < 0.1
