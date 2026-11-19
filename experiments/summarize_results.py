@@ -1,4 +1,4 @@
-"""Collect outputs/results/*.json into one summary used by the manuscript."""
+"""Collect outputs/results/*.json into one summary used by the study report."""
 import json
 import sys
 from pathlib import Path

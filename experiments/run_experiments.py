@@ -1,4 +1,4 @@
-"""Run the experiments reported in the manuscript.
+"""Run the experiments of the study report.
 
     python experiments/run_experiments.py m1 m4 m6      # passive mode
     python experiments/run_experiments.py m5            # voiceprint

@@ -5,8 +5,9 @@ Acoustic drone localization research code (`droneloc`): reference subtraction, r
 Raspberry Pi Pico + 12 x INMP441 microphone array (`hardware/pico_mic_array/`).
 
 - The user prefers replies in **Arabic** (right-to-left, commands in code blocks).
-- Work on branch `claude/epic-ride-9fqd2p`; `main` holds the release cited in the manuscript.
+- `main` holds the latest version (3.0.0); work on a branch and merge into `main` by pull request.
 - Run tests with `python -m pytest tests`. Keep the code Python 3.9 compatible and working on
   32-bit systems (the user's Raspberry Pi OS is armhf).
-- Do not change the exact estimation path behind the published results; speed-ups for small
-  computers go behind options such as `PhaseSRP(fast=True)`, used by the live mode.
+- The Applied Acoustics submission is closed (rejected, November 2026), so the code is no longer
+  frozen for it. Still record any change that alters numerical results in the README, and keep
+  unpublished patent drawings out of this public repository (they are in the owner's private Drive).

@@ -1,6 +1,6 @@
 # Briefing for Claude Code on the Raspberry Pi
 
-Acoustic drone localization: hardware bring-up of the microphone array, two USB cameras, two pan/tilt heads and two orientation sensors. Updated 18 November 2026; branch `claude/epic-ride-9fqd2p`. The user-facing step-by-step session plan (Arabic) is docs/reports/Pi_Session_Runbook_AR.docx. Figures carry Arabic labels; the text below describes them fully.
+Acoustic drone localization: hardware bring-up of the microphone array, two USB cameras, two pan/tilt heads and two orientation sensors. Updated 19 November 2026; branch `main` (version 3.0.0). The user-facing step-by-step session plan (Arabic) is docs/reports/Pi_Session_Runbook_AR.docx. Figures carry Arabic labels; the text below describes them fully.
 
 ## 1. Read this first
 
@@ -10,7 +10,7 @@ You are helping Dr. Husham Saied (the user) bring up the hardware of an acoustic
 
 - The software side is written and tested in simulation; **none of the firmware has run on real hardware yet**. Expect bring-up issues and debug them step by step, starting with two microphones.
 
-- Do not change the exact estimation path that produced the published results (main = release 2.1.0, Zenodo DOI 10.5281/zenodo.23151340). Speed-ups for the Pi go behind options such as PhaseSRP(fast=True), which only the live mode uses.
+- The journal submission is closed, so the code is no longer frozen; still note in the README any change that alters numerical results. Unpublished patent drawings stay out of this public repository (they are in the owner's private Google Drive).
 
 - Keep the code Python 3.9 compatible and working on 32-bit ARM (the current Pi OS is armhf).
 
@@ -39,16 +39,17 @@ Python package droneloc/; command line python -m droneloc {libraries,run,evaluat
 | Git                       | git config pull.ff only is set                                                                          |
 | Speed                     | About 10–20x slower than a laptop on every processing step                                              |
 
-### 2.3 Updating the code on the Pi (history was rewritten)
+### 2.3 Updating the code on the Pi
 
-On 24 October 2026 the branch history on GitHub was rewritten (the journal submission files were removed from the public history). A plain git pull therefore fails on the Pi. Update with:
+Everything is on main (version 3.0.0); the working branches were merged and deleted on 19 November 2026. The Pi clone was made from the old branch, whose history was rewritten, so switch it to main once:
 
 ```bash
 cd "/home/pi/Desktop/The Dron Project/code"
 git fetch origin
-git reset --hard origin/claude/epic-ride-9fqd2p
+git checkout -B main origin/main
 source .venv/bin/activate
 python -m pytest tests
+\# later updates: git pull
 ```
 
 Untracked files such as live.wav (a simulated test recording) are not affected. Do not re-add the removed submission files or the old docs/NEXT_SESSION.md.
@@ -306,5 +307,3 @@ The user owns one BNO085 and, among others, a GY-521 (MPU-6050), GY-291 (ADXL345
 5.  Kalman tracking (direction and range) in live mode.
 
 6.  Use the sensor readings in the pointer: rotate directions from the sphere frame (BNO085) to the heads frame (calibrated yaw + MPU-6050 tilt).
-
-7.  Merge claude/epic-ride-9fqd2p into main via a pull request when the user asks.

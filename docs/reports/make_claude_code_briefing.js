@@ -46,7 +46,7 @@ const add = (...xs) => xs.forEach(x => Array.isArray(x) ? body.push(...x) : body
 // ======================================================= Arabic cover note
 add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 160 }, children: runs(b('Briefing for Claude Code on the Raspberry Pi'), { size: 40, color: '1F3864' }) }));
 add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: runs('Acoustic drone localization — hardware bring-up: microphone array, two USB cameras, two pan/tilt heads', { size: 24, color: '555555' }) }));
-add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Updated 18 November 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch claude/epic-ride-9fqd2p', { size: 18, color: '777777' }) }));
+add(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: runs('Updated 19 November 2026 · repository husham-eng/Multimodal-Reference-Subtraction-Voiceprint-and-Three-Dimensional-Sound-Meter-for-Drone-Localization · branch main (version 3.0.0)', { size: 18, color: '777777' }) }));
 add(new Paragraph({ bidirectional: true, alignment: AlignmentType.RIGHT, spacing: { after: 160 }, children: runs(b('ملاحظة لك (د. هشام):'), { size: 28, color: '1F3864' }, true) }));
 add(AR('هذا الملف موجّه إلى Claude Code الذي سيعمل على الراسبيري باي بعد أن تُكمل بناء الدائرة. يشرح له كل ما أُضيف: الدائرة، والأطراف، والبرامج، وما جُرّب وما لم يُجرَّب بعد، وخطوات التشغيل والاختبار. بهذا لا تحتاج أن تشرح من جديد.'));
 add(AR('الجزء التقني مكتوب بالإنجليزية لأن Claude Code يتعامل معها بأعلى دقة، خصوصاً مع أسماء الأطراف والأوامر. وهو يفهم العربية، فاكتب له طلباتك بالعربية كالمعتاد.'));
@@ -58,8 +58,8 @@ add(ARB('لا تحتاج رفع الملف يدوياً: بعد تحديث ال�
 add(CODE(['Read docs/reports/Claude_Code_Briefing.md, then help me bring up the circuit.']));
 add(SP());
 add(ARB(['تنبيه: Claude Code يحتاج نظاماً 64-بت، ونظام الباي الحالي 32-بت (armhf). إما أن تثبّت Raspberry Pi OS (64-bit) على بطاقة جديدة، أو تستخدم Claude Code على حاسوب آخر وتنفّذ الأوامر على الباي يدوياً.']));
-add(ARB('قبل أي شيء على الباي: حدّث الكود بهذه الأوامر، لأن تاريخ الفرع على GitHub أُعيد ترتيبه فلن يعمل الأمر المعتاد git pull:'));
-add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'git fetch origin', 'git reset --hard origin/claude/epic-ride-9fqd2p']));
+add(ARB('قبل أي شيء على الباي: انقل نسخة المشروع إلى الفرع الرئيسي main بهذه الأوامر (مرة واحدة)، وبعدها يكفي git pull:'));
+add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'git fetch origin', 'git checkout -B main origin/main']));
 add(new Paragraph({ children: [new PageBreak()] }));
 
 // ======================================================= 1
@@ -67,7 +67,7 @@ add(H1('1. Read this first'));
 add(P('You are helping Dr. Husham Saied (the user) bring up the hardware of an acoustic drone-localization project on a Raspberry Pi. The user prefers replies in Arabic (right-to-left text, commands in code blocks). Keep explanations short and practical: they build and wire the hardware themselves and paste terminal output back to you.'));
 add(P(b('Ground rules:')));
 add(B(['The software side is written and tested in simulation; ', b('none of the firmware has run on real hardware yet'), '. Expect bring-up issues and debug them step by step, starting with two microphones.']));
-add(B(['Do not change the exact estimation path that produced the published results (', c('main'), ' = release 2.1.0, Zenodo DOI 10.5281/zenodo.23151340). Speed-ups for the Pi go behind options such as ', c('PhaseSRP(fast=True)'), ', which only the live mode uses.']));
+add(B(['The journal submission is closed, so the code is no longer frozen; still note in the README any change that alters numerical results. Unpublished patent drawings stay out of this public repository (they are in the owner\'s private Google Drive).']));
 add(B(['Keep the code Python 3.9 compatible and working on 32-bit ARM (the current Pi OS is armhf).']));
 add(B(['Run ', c('python -m pytest tests'), ' after changes (25 tests; about 4 minutes on the Pi).']));
 add(B(['Safety: servos on their own 5 V supplies (one per head), never from the Pico or the Pi; keep hands clear of the heads while they move.']));
@@ -88,10 +88,10 @@ add(TABLE(['Item', 'Value'], [
   ['Git', [c('git config pull.ff only'), ' is set']],
   ['Speed', 'About 10–20x slower than a laptop on every processing step'],
 ], [2600, 7000]));
-add(H2('2.3 Updating the code on the Pi (history was rewritten)'));
-add(P(['On 24 October 2026 the branch history on GitHub was rewritten (the journal submission files were removed from the public history). A plain ', c('git pull'), ' therefore fails on the Pi. Update with:']));
-add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'git fetch origin', 'git reset --hard origin/claude/epic-ride-9fqd2p',
-          'source .venv/bin/activate', 'python -m pytest tests']));
+add(H2('2.3 Updating the code on the Pi'));
+add(P(['Everything is on ', c('main'), ' (version 3.0.0); the working branches were merged and deleted on 19 November 2026. The Pi clone was made from the old branch, whose history was rewritten, so switch it to main once:']));
+add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'git fetch origin', 'git checkout -B main origin/main',
+          'source .venv/bin/activate', 'python -m pytest tests', '# later updates: git pull']));
 add(SP());
 add(P(['Untracked files such as ', c('live.wav'), ' (a simulated test recording) are not affected. Do not re-add the removed submission files or the old ', c('docs/NEXT_SESSION.md'), '.']));
 
@@ -260,7 +260,6 @@ add(...NUMLIST([
   'If the Pi is too slow with five references: speed up reference cancellation and cross-spectra in the live path only (keep the published path unchanged).',
   'Kalman tracking (direction and range) in live mode.',
   'Use the sensor readings in the pointer: rotate directions from the sphere frame (BNO085) to the heads frame (calibrated yaw + MPU-6050 tilt).',
-  'Merge claude/epic-ride-9fqd2p into main via a pull request when the user asks.',
 ]));
 
 const doc = new Document({

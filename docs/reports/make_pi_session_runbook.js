@@ -70,8 +70,8 @@ add(WARN('في أول تجربة: انزع الذراع والكاميرا عن 
 // ------------------------------------------------ 1
 add(new Paragraph({ children: [new PageBreak()] }));
 add(H1('1. تجهيز الباي وتحديث الكود'));
-add(P('المستودع عام الآن، فيعمل التحديث دون كلمة مرور. نستخدم reset بدل pull مرة واحدة، لأن تاريخ الفرع أُعيد ترتيبه:'));
-add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'source .venv/bin/activate', 'git fetch origin', 'git reset --hard origin/claude/epic-ride-9fqd2p',
+add(P('المستودع عام، وكل الكود الآن في الفرع الرئيسي main (الإصدار 3.0.0). انقل نسخة الباي إليه مرة واحدة بالأمر checkout، وبعدها يكفي git pull:'));
+add(CODE(['cd "/home/pi/Desktop/The Dron Project/code"', 'source .venv/bin/activate', 'git fetch origin', 'git checkout -B main origin/main',
   'pip install smbus2', 'sudo apt install -y i2c-tools fswebcam', 'sudo usermod -aG dialout pi']));
 add(SP());
 add(P([b('تفعيل I2C والمنفذ التسلسلي '), '(للبوصلتين):']));

@@ -1,4 +1,4 @@
-"""Figures of the manuscript (600 dpi PNG + vector PDF).
+"""Figures of the study report (600 dpi PNG + vector PDF).
 
     python experiments/make_figures.py static     # model / diagram figures
     python experiments/make_figures.py results    # figures from outputs/results/*.json
