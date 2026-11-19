@@ -63,6 +63,9 @@ def run(drone: str = "hexa_swap", dataset: str | None = None, duration: float = 
     rng = np.random.default_rng(seed)
     fs = 16000
     bank = SourceBank(fs, dataset)
+    if dataset:
+        from .catalog import DATASETS
+        print(f"  dataset '{dataset}' licence: {DATASETS[dataset].licence}", flush=True)
     prof = DRONE_PROFILES[drone]
     src = "recordings from '" + dataset + "'" if bank.recorded(drone) is not None else "synthetic rotor model"
     print(f"Target drone: {prof.name}  (BPF {prof.bpf_hz:.0f} Hz, source: {src})")

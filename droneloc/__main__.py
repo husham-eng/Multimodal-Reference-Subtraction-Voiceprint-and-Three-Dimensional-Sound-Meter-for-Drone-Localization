@@ -10,6 +10,8 @@ def main() -> None:
     sub.add_parser("libraries", help="list drone sound libraries (synthetic profiles and datasets)")
     d = sub.add_parser("download", help="download a public dataset into ./data")
     d.add_argument("dataset", choices=[k for k, v in DATASETS.items() if v.auto_download])
+    d.add_argument("--accept-license", action="store_true",
+                   help="confirm you have read the dataset licence and your use complies with it")
     r = sub.add_parser("run", help="train all stages and run the simulated homing mission")
     r.add_argument("--drone", default="hexa_swap", choices=list(DRONE_PROFILES))
     r.add_argument("--dataset", default=None, choices=list(DATASETS),
@@ -158,7 +160,7 @@ def main() -> None:
         monitor(a.bno or None, None if a.mpu_bus < 0 else a.mpu_bus, a.seconds)
     elif a.cmd == "download":
         from .datasets import download
-        download(a.dataset)
+        download(a.dataset, accept_license=a.accept_license)
     else:
         from .pipeline import run
         run(a.drone, a.dataset, a.duration, a.seed, a.out, a.n_voiceprint, a.n_neural, not a.no_plots,

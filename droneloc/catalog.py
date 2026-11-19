@@ -5,9 +5,11 @@ Two kinds of "libraries" are offered:
 * ``DRONE_PROFILES`` - parametric rotor-noise models that run fully offline.
   The numbers are representative values (blade count, hover RPM, level) and
   should be re-tuned against real recordings of the drone you actually fly.
-* ``DATASETS`` - public drone / background audio collections. Those marked
-  ``auto_download`` can be fetched with ``python -m droneloc download <key>``;
-  the others must be downloaded manually from the listed page.
+* ``DATASETS`` - optional third-party drone / background audio collections. Nothing
+  in the package needs them: the defaults use only the synthetic profiles and your own
+  recordings. Each one has its own licence (see ``licence`` and DATA_LICENSES.md); those
+  marked ``auto_download`` are fetched only with
+  ``python -m droneloc download <key> --accept-license``, the others manually.
 """
 from __future__ import annotations
 
@@ -98,6 +100,8 @@ class DatasetInfo:
     auto_download: bool = False
     git_url: str | None = None
     sparse_paths: tuple[str, ...] = ()
+    licence: str = "not verified: read the terms on the dataset page before use"
+    commercial_ok: bool | None = None    # True / False / None = unknown
 
 
 DATASETS: dict[str, DatasetInfo] = {d.key: d for d in [
@@ -110,6 +114,10 @@ DATASETS: dict[str, DatasetInfo] = {d.key: d for d in [
         auto_download=True, git_url="https://github.com/saraalemadi/DroneAudioDataset",
         sparse_paths=("Multiclass_Drone_Audio/bebop_1", "Multiclass_Drone_Audio/membo_1",
                       "Multiclass_Drone_Audio/unknown"),
+        licence="Academic research and educational use licence (2019-2026): non-commercial academic use "
+                "only; military, defence, intelligence and SECURITY uses prohibited; commercial use needs "
+                "written permission. Not suitable for patent / product work.",
+        commercial_ok=False,
     ),
     DatasetInfo(
         "svanstrom", "Drone detection dataset (Svanstrom et al., 2021)",
@@ -118,6 +126,9 @@ DATASETS: dict[str, DatasetInfo] = {d.key: d for d in [
         "Extra drone vs. non-drone voiceprint data; multimodal (audio + video) experiments.",
         auto_download=True, git_url="https://github.com/DroneDetectionThesis/Drone-detection-dataset",
         sparse_paths=("Data/Audio",),
+        licence="CC0 1.0 (public domain dedication): any use, commercial included; citing the thesis "
+                "is requested.",
+        commercial_ok=True,
     ),
     DatasetInfo(
         "esc50", "ESC-50 environmental sounds (Piczak, 2015)",
@@ -125,6 +136,8 @@ DATASETS: dict[str, DatasetInfo] = {d.key: d for d in [
         "2000 x 5 s clips in 50 classes (wind, rain, birds, engine, helicopter ...).",
         "Background / interference library for the reference-subtraction stage.",
         auto_download=True, git_url="https://github.com/karolpiczak/ESC-50", sparse_paths=("audio", "meta"),
+        licence="CC BY-NC 3.0 (non-commercial, attribution); only the ESC-10 subset is CC BY 3.0.",
+        commercial_ok=False,
     ),
     DatasetInfo(
         "dregon", "DREGON (Strauss et al., 2018)",
@@ -153,13 +166,15 @@ def describe() -> str:
     for p in DRONE_PROFILES.values():
         lines.append(f"  {p.key:16s} {p.name:34s} {p.n_rotors:6d} {p.n_blades:6d} {p.hover_rpm:6.0f} "
                      f"{p.bpf_hz:8.1f} {p.level_1m_db:6.0f}")
-    lines += ["", "Public datasets (use with --dataset):", ""]
+    lines += ["", "Optional third-party datasets (use with --dataset; not needed by the defaults):", ""]
     for d in DATASETS.values():
         tag = "auto-download" if d.auto_download else "manual download"
         lines.append(f"  [{d.key}] {d.name}  ({tag})")
         lines.append(f"      {d.url}")
         lines.append(f"      content: {d.content}")
         lines.append(f"      use:     {d.use}")
+        ok = {True: "yes", False: "NO", None: "unknown"}[d.commercial_ok]
+        lines.append(f"      licence: {d.licence}  [commercial use: {ok}]")
         if d.drones:
             lines.append(f"      drones:  {', '.join(sorted(set(d.drones.values())))}")
     return "\n".join(lines)
