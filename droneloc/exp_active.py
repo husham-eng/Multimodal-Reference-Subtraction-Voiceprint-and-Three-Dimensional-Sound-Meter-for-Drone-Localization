@@ -1,4 +1,4 @@
-"""Active mode (beacon homing) re-implemented for the revision (M2, M3, M7).
+"""Active mode (beacon homing) experiments (M2, M3, M7).
 
 One listening window of 0.2 s at 48 kHz is synthesised at the six-microphone
 sphere carried by the supply drone:
@@ -13,7 +13,7 @@ sphere carried by the supply drone:
   capsules, 0.5 dB sensitivity mismatch;
 * four reference microphones, one 5 cm below each rotor.
 
-Processing chains: band-energy detector (original) or matched filter;
+Processing chains: band-energy detector (baseline) or matched filter;
 ego-noise suppression by known-RPM harmonic notching or by a multichannel
 Wiener reference canceller; direction by six-pair intensity, opposite-pair
 GCC-PHAT, their fixed (0.4/0.6) or inverse-variance fusion, SRP-PHAT with
@@ -251,7 +251,7 @@ class Listener:
         return v / np.linalg.norm(v)
 
     def gcc_pairs(self, mics) -> np.ndarray:
-        """Opposite-pair GCC-PHAT with the free-field formula s = -c dtau / (2r) (original Eq. 5)."""
+        """Opposite-pair GCC-PHAT with the free-field formula s = -c dtau / (2r)."""
         X = np.fft.rfft(mics, axis=1)
         m = (self.freqs >= BAND[0]) & (self.freqs <= BAND[1])
         s = np.zeros(3)
@@ -405,12 +405,12 @@ class Policy:
 
 
 POLICIES = [
-    Policy("silence windows, energy detector, fixed fusion (original)", "silent", "energy", "none", "fixed_fusion"),
-    Policy("motors running, energy detector, fixed fusion (original baseline)", "running", "energy", "none", "fixed_fusion"),
+    Policy("silence windows, energy detector, fixed fusion (baseline)", "silent", "energy", "none", "fixed_fusion"),
+    Policy("motors running, energy detector, fixed fusion (baseline, motors running)", "running", "energy", "none", "fixed_fusion"),
     Policy("motors running, matched filter, SRP-sphere", "running", "mf", "none", "srp_sphere"),
     Policy("motors running, matched filter + RPM notch, SRP-sphere", "running", "mf", "notch", "srp_sphere"),
     Policy("motors running, matched filter + reference canceller, SRP-sphere", "running", "mf", "ref", "srp_sphere"),
-    Policy("silence windows, matched filter, SRP-sphere (revised)", "silent", "mf", "none", "srp_sphere"),
+    Policy("silence windows, matched filter, SRP-sphere (proposed)", "silent", "mf", "none", "srp_sphere"),
 ]
 
 
@@ -522,7 +522,7 @@ def silence_window_budget(mass=3.0, n_rot=4, prop_d_in=15.0, rpm=4500.0, rotor_i
             "overhead_pct": 100 * E_cycle / (P_hover * cycle)}
 
 
-def run_m2(out: Path = Path("outputs/revision")) -> dict:
+def run_m2(out: Path = Path("outputs/results")) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     res = {"budget": silence_window_budget()}
     b = res["budget"]

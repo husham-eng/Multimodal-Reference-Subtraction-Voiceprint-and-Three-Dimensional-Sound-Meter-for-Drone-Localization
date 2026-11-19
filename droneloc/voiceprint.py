@@ -12,10 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 from .catalog import DRONE_PROFILES
 from .dsp import mel_filterbank, rms, welch_psd
@@ -80,7 +76,7 @@ def make_training_set(drones: list[str], n_per_class: int = 120, seg: float = 1.
                       sensor_aug: bool = False):
     """Simulated 1 s segments of each drone at random SNR, plus a background class.
 
-    ``rpm_range`` sets the throttle augmentation (+-12% originally; +-30% is
+    ``rpm_range`` sets the throttle augmentation (+-12% narrow; +-30% is
     recommended, see the RPM-excursion test) and ``sensor_aug`` passes each
     segment through the rigid-sphere response of a random direction so that the
     classifier sees the spectral colouring of the physical sensor."""
@@ -125,6 +121,10 @@ class VoiceprintModel:
         idx = rng.permutation(len(y))
         cut = int(0.8 * len(y))
         tr, te = idx[:cut], idx[cut:]
+        from sklearn.ensemble import RandomForestClassifier  # imported here: slow to load on a Raspberry Pi
+        from sklearn.metrics import accuracy_score, confusion_matrix
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
         clf = make_pipeline(StandardScaler(), RandomForestClassifier(300, random_state=seed, n_jobs=-1))
         clf.fit(X[tr], y[tr])
         pred = clf.predict(X[te])

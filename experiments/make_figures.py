@@ -1,7 +1,7 @@
-"""Figures of the revised manuscript (600 dpi PNG + vector PDF).
+"""Figures of the study report (600 dpi PNG + vector PDF).
 
-    python experiments/figures_revision.py static     # model / diagram figures
-    python experiments/figures_revision.py results    # figures from outputs/revision/*.json
+    python experiments/make_figures.py static     # model / diagram figures
+    python experiments/make_figures.py results    # figures from outputs/results/*.json
 """
 import json
 import sys
@@ -15,7 +15,7 @@ import numpy as np  # noqa: E402
 from matplotlib.patches import FancyBboxPatch  # noqa: E402
 
 sys.path.insert(0, ".")
-OUT = Path("outputs/revision/figs")
+OUT = Path("outputs/results/figs")
 OUT.mkdir(parents=True, exist_ok=True)
 plt.rcParams.update({"font.size": 9, "axes.titlesize": 9, "axes.labelsize": 9, "legend.fontsize": 8, "font.family": "DejaVu Sans"})
 
@@ -167,7 +167,7 @@ def fig_real_spectra():
 
 # ----------------------------------------------------------------------------- result figures
 def load(n):
-    p = Path("outputs/revision") / f"{n}.json"
+    p = Path("outputs/results") / f"{n}.json"
     return json.loads(p.read_text()) if p.exists() else None
 
 
@@ -198,12 +198,12 @@ def fig_loop():
         return
     fig, ax = plt.subplots(figsize=(6.8, 2.8))
     labels, vals, lo, hi, cols = [], [], [], [], []
-    short = {"silence windows, energy detector, fixed fusion (original)": "silence, energy, fixed fusion (orig.)",
-             "motors running, energy detector, fixed fusion (original baseline)": "running, energy, fixed fusion (orig.)",
+    short = {"silence windows, energy detector, fixed fusion (baseline)": "silence, energy, fixed fusion (baseline)",
+             "motors running, energy detector, fixed fusion (baseline, motors running)": "running, energy, fixed fusion (baseline)",
              "motors running, matched filter, SRP-sphere": "running, MF, SRP",
              "motors running, matched filter + RPM notch, SRP-sphere": "running, MF + notch, SRP",
              "motors running, matched filter + reference canceller, SRP-sphere": "running, MF + ref. canceller, SRP",
-             "silence windows, matched filter, SRP-sphere (revised)": "silence, MF, SRP (revised)"}
+             "silence windows, matched filter, SRP-sphere (proposed)": "silence, MF, SRP (proposed)"}
     for key, col in (("loop", "0.25"), ("loop_coherent", "0.7")):
         for name, r in m2.get(key, {}).items():
             k, n = r["success"]

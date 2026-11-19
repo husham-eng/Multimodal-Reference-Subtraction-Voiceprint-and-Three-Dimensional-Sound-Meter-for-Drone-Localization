@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.13)
+include(pico_sdk_import.cmake)
+project(pico_mic_array C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+pico_sdk_init()
+
+add_executable(pico_mic_array main.c usb_descriptors.c)
+pico_generate_pio_header(pico_mic_array ${CMAKE_CURRENT_LIST_DIR}/i2s_array.pio)
+target_include_directories(pico_mic_array PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(pico_mic_array PRIVATE pico_stdlib pico_multicore pico_unique_id hardware_pio hardware_clocks tinyusb_device)
+pico_add_extra_outputs(pico_mic_array)

@@ -79,9 +79,9 @@ python -m pytest tests
 ![spectrograms](docs/spectrograms.png)
 ![errors](docs/errors.png)
 
-## المراجعة العلمية: ما الذي أُضيف (الإصدار 2.1.0)
+## ما أُضيف في الإصدارين 2.1 و2.2
 
-استجابةً لتقرير المراجعة أُضيفت تجارب وأدوات جديدة (التفاصيل في `experiments/` و`outputs/revision/` بعد التشغيل):
+أُضيفت تجارب وأدوات جديدة (التفاصيل في `experiments/` و`outputs/results/` بعد التشغيل):
 
 | الإضافة | الملف |
 |---|---|
@@ -92,23 +92,35 @@ python -m pytest tests
 | تجارب الاستقبال السلبي (M1، M4، M6) | `droneloc/exp_passive.py` |
 | تقييم البصمة بلا تسرب (حسب التسجيل/الجلسة/الحملة) | `droneloc/exp_voiceprint.py` |
 | أدوات البيانات الحقيقية: `evaluate-array`، `coherence`، `sphere-geometry`، وسكربت التسجيل | `droneloc/real_array.py`, `experiments/record.py` |
-| تقييم على تسجيلات DREGON الحقيقية بأمر واحد (`python -m droneloc dregon --data ... --noise ...`)، مع طرح ضجيج المراوح | `droneloc/dregon.py`, `docs/revision/dregon/` |
-| العمل دون إنترنت: حجب الشبكة وقياس زمن المعالجة | `droneloc/offline.py`, `docs/revision/offline_benchmark.json` |
-| دليل بناء العتاد واختباره (بالعربي)، ومنه وحدة IMU وبوصلة ثلاثية الأبعاد للمرحلة القادمة | [`docs/Hardware_Guide_AR.docx`](docs/Hardware_Guide_AR.docx) |
-| ملفات التقديم إلى Applied Acoustics | `docs/submission_applied_acoustics/` |
+| تقييم على تسجيلات DREGON الحقيقية بأمر واحد (`python -m droneloc dregon --data ... --noise ...`)، مع طرح ضجيج المراوح | `droneloc/dregon.py`, `docs/results/dregon/` |
+| العمل دون إنترنت: حجب الشبكة وقياس زمن المعالجة | `droneloc/offline.py`, `docs/results/offline_benchmark.json` |
+| دليل بناء العتاد واختباره (بالعربي) | [`docs/Hardware_Guide_AR.docx`](docs/Hardware_Guide_AR.docx) |
 
-لإعادة إنتاج تجارب المراجعة:
+لإعادة إنتاج التجارب:
 ```
-python experiments/run_revision.py m1 m4 m5 m6 m2
-python experiments/summarize_revision.py
-python experiments/figures_revision.py
+python experiments/run_experiments.py m1 m4 m5 m6 m2
+python experiments/summarize_results.py
+python experiments/make_figures.py
 ```
+
+## ما أُضيف في الإصدار 3.0: العتاد منخفض التكلفة والتشغيل المباشر
+
+| الإضافة | الملف |
+|---|---|
+| مصفوفة 12 ميكروفون INMP441 على Raspberry Pi Pico بساعة واحدة مشتركة (برنامج ثابت، ومخطط توصيل، وسكربت تسجيل) | [`hardware/pico_mic_array/`](hardware/pico_mic_array/), `experiments/record_pico.py` |
+| تحديد الاتجاه مباشرة من المصفوفة أو من تسجيل (`python -m droneloc live`)، مع تأخير محدود على الحواسيب البطيئة | `droneloc/live.py`, `experiments/profile_live.py` |
+| العمل على Raspberry Pi بنظام 32-بت (إصلاح تقطيع الإشارة، وبحث سريع عن الاتجاه للتشغيل المباشر) | `droneloc/dsp.py`, `droneloc/localization.py` |
+| رأسان للكاميرات بأربعة سيرفوهات (علوي ومقلوب) يتبعان الاتجاه الصوتي للتحقق البصري (`python -m droneloc pointer`، `live --pointer`) | [`hardware/pico_pointer/`](hardware/pico_pointer/), `droneloc/pointer.py` |
+| حساسا الاتجاه: BNO085 على الكرة وMPU-6050 على حامل الرأسين (`python -m droneloc imu`) | `droneloc/imu.py` |
+| مخططات التوصيل بالعربية، ودليل جلسة الاختبار على الباي، وملف تعريف لـ Claude Code | [`docs/figures_ar/`](docs/figures_ar/), [`docs/reports/`](docs/reports/) |
+
+البرامج الثابتة مبنية ومختبرة على المحاكاة، ولم تُجرَّب بعد على العتاد الحقيقي. خطوات الاختبار في [`docs/reports/Pi_Session_Runbook_AR.docx`](docs/reports/Pi_Session_Runbook_AR.docx).
 
 ## التقرير والاستشهاد
 
 - التقرير الكامل (الإصدار الثاني): [`docs/Drone_Acoustic_Guidance_Report_EN_v2.docx`](docs/Drone_Acoustic_Guidance_Report_EN_v2.docx)
 - بيانات الاستشهاد في [`CITATION.cff`](CITATION.cff)، وبيانات أرشفة Zenodo في [`.zenodo.json`](.zenodo.json).
-- الأرشفة على Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228) (كل الإصدارات)، والإصدار 2.0.0: [10.5281/zenodo.23122229](https://doi.org/10.5281/zenodo.23122229)
+- الأرشفة على Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23122228.svg)](https://doi.org/10.5281/zenodo.23122228) (كل الإصدارات)، والإصدار 2.0.0: [10.5281/zenodo.23122229](https://doi.org/10.5281/zenodo.23122229)، والإصدار 2.0.1: [10.5281/zenodo.23122603](https://doi.org/10.5281/zenodo.23122603)، والإصدار 2.1.0: [10.5281/zenodo.23151340](https://doi.org/10.5281/zenodo.23151340). رابط «كل الإصدارات» يفتح دائماً أحدث إصدار.
 
 ## ملاحظات وحدود
 

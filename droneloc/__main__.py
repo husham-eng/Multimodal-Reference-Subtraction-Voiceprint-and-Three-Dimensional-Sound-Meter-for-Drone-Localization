@@ -1,4 +1,4 @@
-"""Command line: python -m droneloc {libraries,download,run,evaluate-array,dregon,coherence,sphere-geometry}."""
+"""Command line: python -m droneloc {libraries,download,run,evaluate-array,dregon,coherence,sphere-geometry,live,pointer,imu}."""
 import argparse
 
 from .catalog import DATASETS, DRONE_PROFILES, describe
@@ -47,6 +47,34 @@ def main() -> None:
                     help="noise-only in-flight WAV (no source); adds a run with noise cross-spectra subtraction")
     g = sub.add_parser("sphere-geometry", help="write the geometry CSV of the 160 mm octahedral sensor")
     g.add_argument("path", nargs="?", default="sphere160.csv")
+    lv = sub.add_parser("live", help="live direction finding from the Pico microphone array (or a WAV replay)")
+    lv.add_argument("--port", default=None, help="serial port (default: auto-detect the Pico)")
+    lv.add_argument("--wav", default=None, help="replay this recording through the live path instead of the Pico")
+    lv.add_argument("--realtime", action="store_true", help="with --wav: replay at the recording's speed")
+    lv.add_argument("--geometry", default=None, help="CSV x,y,z per array mic [m] (default: 160 mm sphere)")
+    lv.add_argument("--array", default=None, help="array channel indices (default: 0..M-1)")
+    lv.add_argument("--refs", default=None, help="reference channel indices, e.g. 6,7,8,9,10")
+    lv.add_argument("--cal", type=float, default=3.0, help="seconds at the start used to train the reference canceller")
+    lv.add_argument("--band", default=None, help="lo,hi [Hz] for a beacon or broadband source")
+    lv.add_argument("--bpf", default=None, help="lo,hi [Hz] blade-passing-frequency search range (harmonic comb)")
+    lv.add_argument("--steering", default="free", choices=["free", "sphere"])
+    lv.add_argument("--window", type=float, default=0.5, help="analysis window [s]")
+    lv.add_argument("--hop", type=float, default=0.25, help="time between estimates [s]")
+    lv.add_argument("--seconds", type=float, default=None, help="stop after this many seconds")
+    lv.add_argument("--log", default=None, help="write every estimate to this CSV")
+    lv.add_argument("--pointer", action="store_true", help="aim the camera heads (Pico pointer board) at each estimate")
+    lv.add_argument("--pointer-cal", default="pointer_cal.json", help="head calibration file (JSON)")
+    lv.add_argument("--range", type=float, default=None, help="source distance [m] for the head parallax correction")
+    po = sub.add_parser("pointer", help="test and move the two camera heads (Pico pointer board)")
+    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal"])
+    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m]")
+    po.add_argument("--port", default=None)
+    po.add_argument("--cal", default="pointer_cal.json", help="head calibration file (JSON)")
+    po.add_argument("--hold", type=float, default=3.0, help="seconds to keep the position before releasing")
+    im = sub.add_parser("imu", help="read the orientation sensors (BNO085 on the sphere, MPU-6050 on the heads)")
+    im.add_argument("--bno", default="/dev/serial0", help="BNO085 UART-RVC port ('' to skip)")
+    im.add_argument("--mpu-bus", type=int, default=1, help="I2C bus of the MPU-6050 (-1 to skip)")
+    im.add_argument("--seconds", type=float, default=None)
     a = ap.parse_args()
     if a.cmd == "libraries":
         print(describe())
@@ -72,6 +100,62 @@ def main() -> None:
         from pathlib import Path
         from .real_array import write_sphere_geometry
         write_sphere_geometry(Path(a.path)); print(f"written {a.path}")
+    elif a.cmd == "live":
+        from pathlib import Path
+        from . import live
+        from .real_array import load_geometry
+        ints = lambda v: [int(i) for i in v.split(",")] if v else None  # noqa: E731
+        pair = lambda v: tuple(float(x) for x in v.split(",")) if v else None  # noqa: E731
+        pos = load_geometry(Path(a.geometry)) if a.geometry else live.SPHERE_DIRS * 0.08
+        src = live.wav_bytes(Path(a.wav), a.realtime) if a.wav else live.serial_bytes(a.port)
+        refs = ints(a.refs)
+        aim = None
+        if a.pointer:
+            from .pointer import Calibration, Pointer
+            cal = Calibration.load(Path(a.pointer_cal)) if Path(a.pointer_cal).exists() else Calibration()
+            ptr = Pointer(cal=cal)
+            aim = lambda r: ptr.point(r["azimuth_deg"], r["elevation_deg"], a.range)  # noqa: E731
+        try:
+            live.run(src, pos, a.seconds, Path(a.log) if a.log else None, array_ch=ints(a.array), refs=refs,
+                     cal_seconds=a.cal if refs else 0.0, window=a.window, hop=a.hop, band=pair(a.band),
+                     bpf=pair(a.bpf), steering=a.steering, skip_late=a.realtime or not a.wav, on_estimate=aim)
+        finally:
+            if a.pointer:
+                ptr.release()
+    elif a.cmd == "pointer":
+        from pathlib import Path
+        from .pointer import Calibration, Pointer
+        if a.action == "init-cal":
+            if Path(a.cal).exists():
+                raise SystemExit(f"{a.cal} already exists (delete it first to start from the defaults)")
+            Calibration().save(Path(a.cal)); print(f"written {a.cal} (default, safe limits 1200..1800 us)"); return
+        cal = Calibration.load(Path(a.cal)) if Path(a.cal).exists() else Calibration()
+        p = Pointer(a.port, cal)
+        v = a.values
+        if a.action == "status":
+            print("\n".join(p.send("?")))
+        elif a.action == "servo":
+            print(p.send(f"S {int(v[0])} {int(v[1])}"))
+        elif a.action == "angle":
+            print(p.send(f"A {int(v[0])} {v[1]}"))
+        elif a.action == "point":
+            head = p.point(v[0], v[1], v[2] if len(v) > 2 else None, min_step_deg=0)
+            print(f"head {head}:", p.last[head])
+        else:
+            p.release(); print("all servos released")
+        if a.action in ("servo", "angle", "point"):
+            import time
+            print(f"holding for {a.hold:g} s, then releasing (Ctrl+C releases at once)")
+            try:
+                t_end = time.time() + a.hold
+                while time.time() < t_end:
+                    p.send("P"); time.sleep(1.0)
+            except KeyboardInterrupt:
+                pass
+            p.release()
+    elif a.cmd == "imu":
+        from .imu import monitor
+        monitor(a.bno or None, None if a.mpu_bus < 0 else a.mpu_bus, a.seconds)
     elif a.cmd == "download":
         from .datasets import download
         download(a.dataset)

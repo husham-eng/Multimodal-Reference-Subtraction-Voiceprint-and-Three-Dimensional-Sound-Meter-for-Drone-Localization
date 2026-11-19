@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-from numpy.lib.stride_tricks import sliding_window_view
+from numpy.lib.stride_tricks import as_strided
 
 P_REF = 20e-6  # reference pressure for dB SPL [Pa]
 SPEED_OF_SOUND = 343.0  # [m/s]
@@ -13,13 +13,24 @@ def hann(n: int) -> np.ndarray:
     return 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(n) / n)
 
 
+def frames(x: np.ndarray, n_fft: int, hop: int) -> np.ndarray:
+    """Read-only view of the frames x[..., k*hop : k*hop + n_fft], shape (..., T, n_fft).
+
+    Strided directly by ``hop``: ``sliding_window_view(x, n_fft)[..., ::hop, :]`` gives the
+    same frames, but its intermediate view spans every sample offset and exceeds the
+    2 GB address limit of 32-bit systems (e.g. Raspberry Pi OS armhf) for long signals."""
+    x = np.ascontiguousarray(x)
+    n = (x.shape[-1] - n_fft) // hop + 1
+    st = x.strides
+    return as_strided(x, x.shape[:-1] + (n, n_fft), st[:-1] + (st[-1] * hop, st[-1]), writeable=False)
+
+
 def stft(x: np.ndarray, n_fft: int = 1024, hop: int = 256) -> np.ndarray:
     """STFT along the last axis. Returns array of shape (..., F, T)."""
     x = np.asarray(x, dtype=float)
     pad = [(0, 0)] * (x.ndim - 1) + [(n_fft // 2, n_fft // 2 + n_fft)]
     xp = np.pad(x, pad)
-    frames = sliding_window_view(xp, n_fft, axis=-1)[..., ::hop, :]
-    spec = np.fft.rfft(frames * hann(n_fft), axis=-1)
+    spec = np.fft.rfft(frames(xp, n_fft, hop) * hann(n_fft), axis=-1)
     return np.swapaxes(spec, -1, -2)
 
 
@@ -44,9 +55,8 @@ def welch_psd(x: np.ndarray, n_fft: int = 4096, hop: int | None = None) -> np.nd
     hop = hop or n_fft // 2
     if x.shape[-1] < n_fft:
         x = np.pad(x, [(0, 0)] * (x.ndim - 1) + [(0, n_fft - x.shape[-1])])
-    frames = sliding_window_view(x, n_fft, axis=-1)[..., ::hop, :]
     win = hann(n_fft)
-    spec = np.fft.rfft(frames * win, axis=-1)
+    spec = np.fft.rfft(frames(x, n_fft, hop) * win, axis=-1)
     # Scale so that sum(psd) ~= mean(x**2)
     return np.mean(np.abs(spec) ** 2, axis=-2) / (np.sum(win ** 2) * n_fft / 2)
 

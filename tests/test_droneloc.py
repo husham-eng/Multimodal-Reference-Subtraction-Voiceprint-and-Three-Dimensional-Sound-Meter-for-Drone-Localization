@@ -150,3 +150,158 @@ def test_offline_chain_without_network():
         ana = vp.analyse(clean[0])
         m = SoundMeter3D(scene.array, FS, vp.level_1m_db).measure(clean[:, -FS // 2:], ana["bpf_hz"])
     assert np.isfinite(m["position"]).all()
+
+
+def test_pico_packet_reader():
+    from droneloc.pico import PacketReader, make_packet
+    rng = np.random.default_rng(0)
+    d = [rng.integers(-32768, 32767, (64, 12)).astype(np.int16) for _ in range(4)]
+    raw = b"junk" + make_packet(0, d[0]) + make_packet(1, d[1])
+    bad = bytearray(make_packet(2, d[2])); bad[30] ^= 1          # corrupt packet 2
+    raw += bytes(bad) + make_packet(3, d[3])
+    rd = PacketReader()
+    out = []
+    for i in range(0, len(raw), 100):                              # arbitrary chunking
+        out += rd.feed(raw[i:i + 100])
+    assert [o[0] for o in out] == [0, 1, None, 3]
+    assert np.array_equal(out[0][3], d[0]) and np.array_equal(out[3][3], d[3])
+    assert not out[2][3].any() and out[2][3].shape == (64, 12)    # gap filled with zeros
+    assert rd.bad >= 1 and rd.lost == 1 and out[0][2] == 15625
+
+
+def _live_recording(tmp_path, az, el, machinery_db, cal_s=0.0, on_s=3.0):
+    """Simulated sphere + reference channels as an int16 WAV: cal_s s drone absent, then on_s s drone on."""
+    import soundfile as sf
+    rng = np.random.default_rng(5)
+    scene = Scene(scattering=True, machinery_level_db=machinery_db, wind_level_db=30, bird_level_db=-100)
+    a, e = np.radians(az), np.radians(el)
+    scene.trajectory = static(scene.array.center + 15 * np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)]))
+    parts = [render(scene, cal_s, drone_on=False, rng=rng)] if cal_s else []
+    parts.append(render(scene, on_s, rng=rng))
+    x = np.hstack([np.vstack([p.mics, p.refs]) for p in parts])
+    sf.write(tmp_path / "live.wav", (x / np.abs(x).max() * 0.9).T, FS, subtype="PCM_16")
+    return tmp_path / "live.wav", parts[0].refs.shape[0]
+
+
+def test_live_wav_replay(tmp_path):
+    from droneloc import live
+    wav, _ = _live_recording(tmp_path, 40, 25, machinery_db=-100)
+    rows = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, quiet=True, log=tmp_path / "log.csv",
+                    bpf=(105, 200), steering="sphere")
+    assert len(rows) >= 9 and (tmp_path / "log.csv").exists()
+    err = [angle_between_deg(live_unit(r), live_unit({"azimuth_deg": 40, "elevation_deg": 25})) for r in rows]
+    assert np.median(err) < 5
+
+
+def test_live_reference_calibration(tmp_path):
+    from droneloc import live
+    wav, R = _live_recording(tmp_path, -110, 30, machinery_db=80, cal_s=3.0)
+    kw = dict(bpf=(105, 200), steering="sphere", quiet=True)
+    refs = list(range(6, 6 + R))
+    with_ref = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, refs=refs, cal_seconds=3.0, **kw)
+    assert with_ref[0]["t"] >= 3.0                                  # estimates start after calibration
+    truth = live_unit({"azimuth_deg": -110, "elevation_deg": 30})
+    err = np.median([angle_between_deg(live_unit(r), truth) for r in with_ref])
+    without = live.run(live.wav_bytes(wav), live.SPHERE_DIRS * 0.08, **kw)
+    err0 = np.median([angle_between_deg(live_unit(r), truth) for r in without if r["t"] > 3.0])
+    assert err < 3 and err0 > 30                                  # machinery dominates without references
+
+
+def live_unit(r):
+    a, e = np.radians(r["azimuth_deg"]), np.radians(r["elevation_deg"])
+    return np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])
+
+
+def test_frames_match_sliding_window():
+    from numpy.lib.stride_tricks import sliding_window_view
+    from droneloc.dsp import frames
+    x = np.random.default_rng(0).standard_normal((3, 5000))
+    for n_fft, hop in [(1024, 256), (2048, 512), (4096, 1024), (64, 7)]:
+        assert np.array_equal(frames(x, n_fft, hop), sliding_window_view(x, n_fft, axis=-1)[..., ::hop, :])
+    assert np.array_equal(frames(x[1:, ::2], 128, 32), sliding_window_view(x[1:, ::2], 128, axis=-1)[..., ::32, :])
+
+
+@pytest.mark.parametrize("model", ["free", "sphere"])
+def test_fast_srp_matches_exact(tmp_path, model):
+    import soundfile as sf
+    from droneloc.localization import GccPhat, PhaseSRP
+    from droneloc.simulation import MicArray
+    from droneloc import live
+    wav, _ = _live_recording(tmp_path, 75, 15, machinery_db=-100, on_s=2.0)
+    x = sf.read(str(wav))[0].T[:6]
+    gcc = GccPhat(MicArray(live.SPHERE_DIRS * 0.08, np.zeros(3)), FS)
+    exact, fast = (PhaseSRP(gcc, model, n_dirs=2000, min_elevation_deg=-90, fast=f) for f in (False, True))
+    for a in range(0, len(x[0]) - 8000, 8000):
+        G = gcc.cross_spectra(x[:, a:a + 8000], 150.0)
+        assert angle_between_deg(exact.locate(G)[0], fast.locate(G)[0]) < 0.5
+
+
+def test_live_skips_late_windows():
+    """A slow computer that receives 2 s at once computes only the newest window."""
+    from droneloc import live
+    x = (np.random.default_rng(1).standard_normal((3 * FS, 6)) * 3000).astype(np.int16)
+    L = live.LiveLocator(live.SPHERE_DIRS * 0.08, FS, band=(300, 4000), skip_late=True)
+    assert [r["t"] for r in L.push(x[:FS])] == [1.0]                # windows ending at 0.5 and 0.75 s skipped
+    r = L.push(x[FS:3 * FS])
+    assert [q["t"] for q in r] == [3.0] and L.skipped == 2 + 7
+
+
+def test_find_port_prefers_product_name(monkeypatch):
+    from types import SimpleNamespace
+    from serial.tools import list_ports
+    from droneloc.pico import find_port
+    ports = [SimpleNamespace(vid=0x2E8A, product="DroneLoc Pointer", device="/dev/ttyACM0"),
+             SimpleNamespace(vid=0x2E8A, product="DroneLoc Mic Array", device="/dev/ttyACM1")]
+    monkeypatch.setattr(list_ports, "comports", lambda: ports)
+    assert find_port() == "/dev/ttyACM1"
+    assert find_port("DroneLoc Pointer") == "/dev/ttyACM0"
+    monkeypatch.setattr(list_ports, "comports", lambda: ports[:1] + [SimpleNamespace(vid=0x1234, product=None, device="x")])
+    assert find_port() == "/dev/ttyACM0"                                   # fallback: first Pico
+
+
+def test_pointer_hemisphere_mapping():
+    from droneloc.pointer import Calibration, HeadSelector, head_command, hemisphere_angles
+    ap = lambda t: tuple(round(v, 6) for v in t)  # noqa: E731
+    assert ap(hemisphere_angles(30, 20)) == (30, 20, 0)
+    assert ap(hemisphere_angles(-90, 20)) == (90, 160, 1)       # az 270: tilt leans back over the top
+    assert hemisphere_angles(10, -5)[1] == 0                    # below the horizon is clamped
+    # jitter around az = 0 keeps the branch in use instead of swinging the pan by 180 deg
+    assert ap(hemisphere_angles(-2, 20, prefer=0)) == (0, 20, 0)
+    assert ap(hemisphere_angles(-2, 20, prefer=1)) == (178, 160, 1)
+    assert hemisphere_angles(-20, 20, prefer=0)[2] == 1         # far outside the margin: switch
+    cal = Calibration()
+    assert ap(head_command(30, 20, "U", cal)) == (30, 20, 0)
+    assert ap(head_command(30, -20, "L", cal)) == (150, 160, 1)  # upside down: sees az -30, el +20
+    sel = HeadSelector(5)
+    assert [sel(e) for e in (20, 3, -3, -10, -2, 4, 8)] == ["U", "U", "U", "L", "L", "L", "U"]
+
+
+def test_pointer_parallax_and_calibration(tmp_path):
+    from droneloc.pointer import Calibration, head_command
+    cal = Calibration(upper_pos_m=[0.0, 0.5, 0.0])            # head 0.5 m to the left of the sphere
+    pan, tilt, br = head_command(0, 10, "U", cal, range_m=3)  # target 3 m ahead is 9.6 deg to the head's right
+    assert br == 1 and abs(pan - 170.4) < 0.3 and abs(tilt - 170.1) < 0.3
+    pan, tilt, br = head_command(0, 10, "U", cal, range_m=3, prefer=0)
+    assert br == 1                                            # 9.6 deg is beyond the 5 deg margin
+    assert abs(head_command(0, 10, "U", cal, range_m=100, prefer=0)[0]) < 0.5
+    cal.upper.pan_offset_deg, cal.upper.pan_sign = 180, -1    # pan servo mounted turning the other way
+    assert round(head_command(30, 20, "U", cal)[0], 6) == 150
+    cal.save(tmp_path / "cal.json")
+    again = Calibration.load(tmp_path / "cal.json")
+    assert again.upper.pan_sign == -1 and again.upper_pos_m == [0.0, 0.5, 0.0]
+
+
+def test_imu_rvc_parser_and_tilt():
+    from droneloc.imu import make_rvc, parse_rvc, tilt_from_acc
+    f1, f2 = make_rvc(1, 12.34, -5.6, 1.5), make_rvc(2, -170.0, 2.0, -3.0, (0.1, 0.0, 0.99))
+    bad = bytearray(make_rvc(3, 1, 1, 1)); bad[5] ^= 0xFF
+    buf = bytearray(b"\x00\xaa" + f1 + bytes(bad) + f2[:7])
+    out = parse_rvc(buf)
+    assert [round(o["yaw"], 2) for o in out] == [12.34]
+    buf += f2[7:]
+    out = parse_rvc(buf)
+    assert len(out) == 1 and out[0]["index"] == 2 and out[0]["acc_g"][0] == 0.1
+    roll, pitch = tilt_from_acc(0.0, 0.0, 1.0)
+    assert roll == 0 and pitch == 0
+    roll, pitch = tilt_from_acc(-0.5, 0.0, 0.866)
+    assert abs(pitch - 30) < 0.1
