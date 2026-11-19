@@ -112,6 +112,7 @@ python experiments/make_figures.py
 | العمل على Raspberry Pi بنظام 32-بت (إصلاح تقطيع الإشارة، وبحث سريع عن الاتجاه للتشغيل المباشر) | `droneloc/dsp.py`, `droneloc/localization.py` |
 | رأسان للكاميرات بأربعة سيرفوهات (علوي ومقلوب) يتبعان الاتجاه الصوتي للتحقق البصري (`python -m droneloc pointer`، `live --pointer`) | [`hardware/pico_pointer/`](hardware/pico_pointer/), `droneloc/pointer.py` |
 | حساسا الاتجاه: BNO085 على الكرة وMPU-6050 على حامل الرأسين (`python -m droneloc imu`) | `droneloc/imu.py` |
+| أصوات اختبار اصطناعية لسبعة أنواع من الدرونات وإشارات مرجعية، تُشغَّل من الجوال أو سمّاعة (`python experiments/make_test_sounds.py`) | `experiments/make_test_sounds.py` |
 | مخططات التوصيل بالعربية، ودليل جلسة الاختبار على الباي، وملف تعريف لـ Claude Code | [`docs/figures_ar/`](docs/figures_ar/), [`docs/reports/`](docs/reports/) |
 
 البرامج الثابتة مبنية ومختبرة على المحاكاة، ولم تُجرَّب بعد على العتاد الحقيقي. خطوات الاختبار في [`docs/reports/Pi_Session_Runbook_AR.docx`](docs/reports/Pi_Session_Runbook_AR.docx).
