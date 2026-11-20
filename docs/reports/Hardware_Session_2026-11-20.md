@@ -11,7 +11,8 @@ Branch `claude/epic-ride-9fqd2p`.
 | Pico 2, servo pointer | Works | 50 Hz pulses checked with `experiments/pulse_check.py`. |
 | Servos (4 x MG995) | Work | All positional (180 deg). Measured range 600..2400 us on every channel, about 180 deg, smooth, no buzzing. Limits saved in `pointer_cal.json` on the Pi. |
 | Cameras (2 x Logitech Brio 100) | Work | `cam_a` = serial 2629ZB52EJT8 = **upper head**; `cam_b` = serial 2629ZBT2TAK8 = **lower head**. The first frame is dark: use `fswebcam -S 30`. |
-| BNO085 / MPU-6050 | Not tested yet | I2C and serial port were not enabled in `raspi-config` yet. |
+| MPU-6050 (heads base) | Works | 0x68 on I2C bus 1. Mounted about 31 deg roll / 6 deg pitch (zero it in calibration). Gyro bias about +6.4/+0.1/-3.0 deg/s; now removed at start. |
+| BNO085 (sphere, Adafruit 4754) | Works | UART-RVC on /dev/serial0 (ttyS0), wired directly without a breadboard: VIN to pin 1, GND to pin 6, SDA to pin 10, **P0 to the board's own 3Vo**. Data at 100 Hz, follows tilting. |
 
 Servo directions, with each servo released before every step:
 
@@ -37,12 +38,13 @@ The lower head runs mirrored relative to the upper one, as expected for an inver
    - The power bank does not deliver power to the servos: it probably switches off at low load. A phone wall charger works for one servo at a time.
    - The power wiring inside the heads does not reach the servos. Each servo was tested with short direct wires.
 4. `pyserial` and `smbus2` were missing from `requirements.txt`.
-5. The Pi reported past under-voltage (`throttled=0x50000`): use the official 5 V 3 A supply.
+5. **BNO085 sent 0 bytes:** the P0 jumper was on the neighbouring BT pin, so the sensor stayed in I2C mode. A Pi UART loopback test (pin 8 to pin 10) proved the Pi side was fine. Note: BNO085 reads P0 only at power-up.
+6. The Pi reported past under-voltage (`throttled=0x50000`): use the official 5 V 3 A supply.
 
 ## To do
 
 - Repair the power wiring of both heads. Use a 5-6 V supply rated 5 A or more for all four servos, with its GND tied to Pico 2 GND.
-- Enable I2C and the serial port, reboot, then run phase 5 (`python -m droneloc imu`).
+- Re-seat the MPU-6050 wires (it stopped answering while the BNO085 was rewired) and run `python -m droneloc imu` with both sensors.
 - Run the head direction calibration with the cameras (runbook 3.4), then the live test (phase 6).
 - Connect the reference microphones (channels 6-11).
 
