@@ -68,8 +68,8 @@ def main() -> None:
     lv.add_argument("--pointer-cal", default="pointer_cal.json", help="head calibration file (JSON)")
     lv.add_argument("--range", type=float, default=None, help="source distance [m] for the head parallax correction")
     po = sub.add_parser("pointer", help="test and move the two camera heads (Pico pointer board)")
-    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal", "limits"])
-    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m] | limits: ch min_us max_us")
+    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal", "limits", "sweep"])
+    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m] | limits: ch min_us max_us | sweep: ch from_us to_us step_us")
     po.add_argument("--port", default=None)
     po.add_argument("--cal", default="pointer_cal.json", help="head calibration file (JSON)")
     po.add_argument("--hold", type=float, default=3.0, help="seconds to keep the position before releasing")
@@ -152,6 +152,27 @@ def main() -> None:
             print(p.send(f"S {int(v[0])} {int(v[1])}"))
         elif a.action == "angle":
             print(p.send(f"A {int(v[0])} {v[1]}"))
+        elif a.action == "sweep":
+            import time
+            ch, u0, u1, du = int(v[0]), int(v[1]), int(v[2]), abs(int(v[3])) or 50
+            du = du if u1 >= u0 else -du
+            st = p.send("?")
+            lim = next((ln for ln in st if ln.startswith(f"OK ch{ch} ")), "")
+            print(lim.replace("OK ", "now: "))
+            print(f"sweeping channel {ch} from {u0} to {u1} us in steps of {abs(du)}, {a.hold:g} s each; Ctrl+C stops and releases")
+            try:
+                u = u0
+                while (u <= u1) if du > 0 else (u >= u1):
+                    p.send(f"S {ch} {u}")
+                    print(f"  {u} us", flush=True)
+                    t_end = time.time() + a.hold
+                    while time.time() < t_end:
+                        p.send("P"); time.sleep(0.5)
+                    u += du
+            except KeyboardInterrupt:
+                print(f"  stopped at {u} us")
+            p.release(); print("released")
+            return
         elif a.action == "point":
             head = p.point(v[0], v[1], v[2] if len(v) > 2 else None, min_step_deg=0)
             print(f"head {head}:", p.last[head])
