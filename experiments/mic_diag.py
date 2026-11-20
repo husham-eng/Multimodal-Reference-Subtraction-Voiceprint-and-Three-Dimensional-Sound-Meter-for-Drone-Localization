@@ -33,8 +33,8 @@ if x.shape[1] >= 10 and x[:, 6:10].any():
     u = x[:, 6:10].astype(np.int64) & 0xFFFF
     for name, hi, lo in (("L (x+)", 0, 1), ("R (x-)", 2, 3)):
         w = (u[:, hi] << 16) | u[:, lo]
-        print(f"\nraw words, line 0 {name}: bit 31 = delay bit, 30..7 = sample, 6..0 should be 0")
+        print(f"\nraw words, line 0 {name}: bits 31..8 = sample (MSB first), 7..0 should be 0")
         for v in w[1000:1012]:
             b = f"{int(v):032b}"
-            print(f"  {b[0]} {b[1:25]} {b[25:]}")
-        print(f"  low 7 bits non-zero in {100 * np.mean((w & 0x7F) != 0):.0f}% of words")
+            print(f"  {b[:24]} {b[24:]}")
+        print(f"  low 8 bits non-zero in {100 * np.mean((w & 0xFF) != 0):.0f}% of words")

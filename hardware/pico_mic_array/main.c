@@ -59,7 +59,10 @@ static void core1_capture(void) {
 #ifdef RAW_DEBUG
                 if (i == 0) raw[lr] = w;
 #endif
-                int32_t s24 = ((int32_t)(w << 1)) >> 8;          /* edges 1..24 = 24-bit sample */
+                /* Measured on the real INMP441s (debug build, 20 Nov 2026): the bit read after
+                   rising edge k is already the one the microphone shifted out at edge k, so the
+                   24-bit sample is in word bits 31..8 (bit 7 and below are always 0). */
+                int32_t s24 = ((int32_t)w) >> 8;
                 hist[2 * i + lr][n & (HB_LEN - 1)] = s24 >> (8 - GAIN_SHIFT);
             }
         }

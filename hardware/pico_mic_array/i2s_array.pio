@@ -31,7 +31,8 @@ public start:
 ; never shift the word alignment for more than one sample. Each bit is read
 ; 15 PIO cycles (~117 ns at 128 MHz) after the SCK rising edge, i.e. in the
 ; middle of the 250 ns high phase, away from both clock edges. Autopush every
-; 32 bits: word bit 31 = edge 0, bits 30..7 = the 24-bit sample (MSB first).
+; 32 bits. On the real INMP441s the MSB is read at edge 0 (they update SD
+; shortly after the rising edge), so word bits 31..8 = the 24-bit sample.
 .program i2s_line
 .wrap_target
     wait 1 gpio 9
