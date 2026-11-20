@@ -68,8 +68,8 @@ def main() -> None:
     lv.add_argument("--pointer-cal", default="pointer_cal.json", help="head calibration file (JSON)")
     lv.add_argument("--range", type=float, default=None, help="source distance [m] for the head parallax correction")
     po = sub.add_parser("pointer", help="test and move the two camera heads (Pico pointer board)")
-    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal"])
-    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m]")
+    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal", "limits"])
+    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m] | limits: ch min_us max_us")
     po.add_argument("--port", default=None)
     po.add_argument("--cal", default="pointer_cal.json", help="head calibration file (JSON)")
     po.add_argument("--hold", type=float, default=3.0, help="seconds to keep the position before releasing")
@@ -132,6 +132,18 @@ def main() -> None:
                 raise SystemExit(f"{a.cal} already exists (delete it first to start from the defaults)")
             Calibration().save(Path(a.cal)); print(f"written {a.cal} (default, safe limits 1200..1800 us)"); return
         cal = Calibration.load(Path(a.cal)) if Path(a.cal).exists() else Calibration()
+        if a.action == "limits":
+            from .pointer import CHANNELS
+            if len(a.values) != 3:
+                raise SystemExit("usage: pointer limits CH MIN_US MAX_US   (e.g. pointer limits 0 900 2100)")
+            ch, lo, hi = int(a.values[0]), int(a.values[1]), int(a.values[2])
+            if ch not in (0, 1, 2, 3) or not 500 <= lo < hi <= 2500:
+                raise SystemExit("channel must be 0..3 and 500 <= MIN_US < MAX_US <= 2500")
+            for head, chans in CHANNELS.items():
+                if ch in chans:
+                    hc = cal.upper if head == "U" else cal.lower
+                    hc.limits_us[chans.index(ch)] = [lo, hi]
+            cal.save(Path(a.cal)); print(f"channel {ch} limits {lo}..{hi} us saved in {a.cal}"); return
         p = Pointer(a.port, cal)
         v = a.values
         if a.action == "status":
