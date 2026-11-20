@@ -118,8 +118,11 @@ def monitor(bno_port: str | None = "/dev/serial0", mpu_bus: int | None = 1, seco
             print(f"MPU-6050 not found on I2C bus {mpu_bus} at 0x68 ({e}); check its wiring "
                   "(SDA pin 3, SCL pin 5, VCC 3V3, GND) - continuing without it")
     if mpu:
-        b = mpu.calibrate_gyro()
-        print(f"MPU-6050 gyro bias {b[0]:+.1f} {b[1]:+.1f} {b[2]:+.1f} deg/s (keep the heads base still at start)")
+        try:
+            b = mpu.calibrate_gyro()
+            print(f"MPU-6050 gyro bias {b[0]:+.1f} {b[1]:+.1f} {b[2]:+.1f} deg/s (keep the heads base still at start)")
+        except OSError as e:
+            print(f"MPU-6050 read failed during gyro calibration ({e}): loose SDA/SCL/VCC/GND wire?")
     t0 = time.time()
     print("sphere = BNO085 (yaw/pitch/roll) · heads base = MPU-6050 (roll/pitch, gyro). Ctrl+C to stop.")
     try:
@@ -133,10 +136,14 @@ def monitor(bno_port: str | None = "/dev/serial0", mpu_bus: int | None = 1, seco
                 parts.append(f"sphere: no data ({bno.n_bytes} bytes received)" if b is None else
                              f"sphere yaw {b['yaw']:7.2f} pitch {b['pitch']:6.2f} roll {b['roll']:6.2f}")
             if mpu:
-                m = mpu.read()
-                g = max(abs(v) for v in m["gyro_dps"])
-                parts.append(f"heads roll {m['roll']:6.2f} pitch {m['pitch']:6.2f} gyro {g:5.1f} deg/s"
-                             + ("  <- moving!" if g > 3 else ""))
+                try:
+                    m = mpu.read()
+                except OSError as e:
+                    parts.append(f"heads: I2C read error ({e.errno}) - loose MPU-6050 wire?")
+                else:
+                    g = max(abs(v) for v in m["gyro_dps"])
+                    parts.append(f"heads roll {m['roll']:6.2f} pitch {m['pitch']:6.2f} gyro {g:5.1f} deg/s"
+                                 + ("  <- moving!" if g > 3 else ""))
             print(" | ".join(parts), flush=True)
     except KeyboardInterrupt:
         pass
