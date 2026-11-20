@@ -110,7 +110,13 @@ class MPU6050:
 def monitor(bno_port: str | None = "/dev/serial0", mpu_bus: int | None = 1, seconds: float | None = None) -> None:
     import time
     bno = BNO085RVC(bno_port) if bno_port else None
-    mpu = MPU6050(mpu_bus) if mpu_bus is not None else None
+    mpu = None
+    if mpu_bus is not None:
+        try:
+            mpu = MPU6050(mpu_bus)
+        except OSError as e:
+            print(f"MPU-6050 not found on I2C bus {mpu_bus} at 0x68 ({e}); check its wiring "
+                  "(SDA pin 3, SCL pin 5, VCC 3V3, GND) - continuing without it")
     if mpu:
         b = mpu.calibrate_gyro()
         print(f"MPU-6050 gyro bias {b[0]:+.1f} {b[1]:+.1f} {b[2]:+.1f} deg/s (keep the heads base still at start)")
