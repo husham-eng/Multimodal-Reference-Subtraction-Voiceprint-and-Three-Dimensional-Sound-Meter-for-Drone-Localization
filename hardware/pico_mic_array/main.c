@@ -48,11 +48,17 @@ static void core1_capture(void) {
     static int32_t hist[NCH][HB_LEN];
     uint32_t n = 0;                       /* input frame counter */
     const int c = HB_TAPS / 2;
+#ifdef RAW_DEBUG
+    uint32_t raw[2] = {0, 0};             /* last raw 32-bit words of data line 0 (L, R) */
+#endif
     for (;;) {
         /* one input frame: left word then right word of every line */
         for (int i = 0; i < N_LINES; i++) {
             for (int lr = 0; lr < 2; lr++) {
                 uint32_t w = pio_sm_get_blocking(line_pio[i], line_sm[i]);
+#ifdef RAW_DEBUG
+                if (i == 0) raw[lr] = w;
+#endif
                 int32_t s24 = ((int32_t)(w << 1)) >> 8;          /* edges 1..24 = 24-bit sample */
                 hist[2 * i + lr][n & (HB_LEN - 1)] = s24 >> (8 - GAIN_SHIFT);
             }
@@ -71,6 +77,11 @@ static void core1_capture(void) {
             acc = (acc + (1 << 12)) >> 13;
             out[ch] = (int16_t)(acc > 32767 ? 32767 : acc < -32768 ? -32768 : acc);
         }
+#ifdef RAW_DEBUG
+        /* debug build: channels 6..9 carry the raw words of line 0 (L hi, L lo, R hi, R lo) */
+        out[6] = (int16_t)(raw[0] >> 16); out[7] = (int16_t)(raw[0] & 0xFFFF);
+        out[8] = (int16_t)(raw[1] >> 16); out[9] = (int16_t)(raw[1] & 0xFFFF);
+#endif
         __dmb();
         head = h + 1;
     }
@@ -103,9 +114,11 @@ static void start_pio(void) {
     uint sm_clk = 0;
     pio_sm_claim(p0, sm_clk);
     pio_gpio_init(p0, PIN_SCK); pio_gpio_init(p0, PIN_WS);
-    gpio_set_drive_strength(PIN_SCK, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_drive_strength(PIN_WS, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_slew_rate(PIN_SCK, GPIO_SLEW_RATE_FAST);
+    /* soft edges: less ringing on SCK/WS wires shared by many microphones */
+    gpio_set_drive_strength(PIN_SCK, GPIO_DRIVE_STRENGTH_4MA);
+    gpio_set_drive_strength(PIN_WS, GPIO_DRIVE_STRENGTH_4MA);
+    gpio_set_slew_rate(PIN_SCK, GPIO_SLEW_RATE_SLOW);
+    gpio_set_slew_rate(PIN_WS, GPIO_SLEW_RATE_SLOW);
     pio_sm_set_pins_with_mask(p0, sm_clk, 0, (1u << PIN_SCK) | (1u << PIN_WS));
     pio_sm_set_consecutive_pindirs(p0, sm_clk, PIN_SCK, 2, true);
     pio_sm_config cc = i2s_clock_program_get_default_config(off_clk);

@@ -27,3 +27,14 @@ for ch in range(x.shape[1]):
     hexs = " ".join(f"{int(s) & 0xFFFF:04x}" for s in x[1000:1008, ch])
     print(f"{ch:2d} {int(v.min()):6d} {int(v.max()):6d} {clip:5.1f} {v.mean():7.0f} {rms:8.1f} "
           f"{zc:6.0f} {peak:8.0f} {corr:10.2f}  {hexs}")
+
+# Debug firmware (pico_mic_array_debug.uf2): channels 6..9 = raw I2S words of data line 0.
+if x.shape[1] >= 10 and x[:, 6:10].any():
+    u = x[:, 6:10].astype(np.int64) & 0xFFFF
+    for name, hi, lo in (("L (x+)", 0, 1), ("R (x-)", 2, 3)):
+        w = (u[:, hi] << 16) | u[:, lo]
+        print(f"\nraw words, line 0 {name}: bit 31 = delay bit, 30..7 = sample, 6..0 should be 0")
+        for v in w[1000:1012]:
+            b = f"{int(v):032b}"
+            print(f"  {b[0]} {b[1:25]} {b[25:]}")
+        print(f"  low 7 bits non-zero in {100 * np.mean((w & 0x7F) != 0):.0f}% of words")

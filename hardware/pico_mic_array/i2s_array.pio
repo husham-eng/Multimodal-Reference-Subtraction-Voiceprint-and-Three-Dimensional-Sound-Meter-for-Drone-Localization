@@ -26,15 +26,27 @@ public start:
 .wrap
 
 ; ---------------------------------------------------------------------------
-; One data line (IN base = the line's GPIO). Synchronises once to the start of
-; a left half, then samples the line on every rising SCK edge. Autopush every
-; 32 bits gives one word per half frame: word bit 31 = edge 0, bits 30..7 =
-; the 24-bit sample (MSB first, I2S one-clock delay).
+; One data line (IN base = the line's GPIO). Re-synchronises on EVERY WS edge
+; and takes exactly 32 bits per half frame, so a missed or extra clock edge can
+; never shift the word alignment for more than one sample. Each bit is read
+; 15 PIO cycles (~117 ns at 128 MHz) after the SCK rising edge, i.e. in the
+; middle of the 250 ns high phase, away from both clock edges. Autopush every
+; 32 bits: word bit 31 = edge 0, bits 30..7 = the 24-bit sample (MSB first).
 .program i2s_line
-    wait 1 gpio 9
-    wait 0 gpio 9
 .wrap_target
+    wait 1 gpio 9
+    wait 0 gpio 9           ; WS fell: left half starts
+    set x, 31
+left_bit:
     wait 0 gpio 8
-    wait 1 gpio 8
+    wait 1 gpio 8 [14]
     in pins, 1
+    jmp x-- left_bit
+    wait 1 gpio 9           ; WS rose: right half starts
+    set x, 31
+right_bit:
+    wait 0 gpio 8
+    wait 1 gpio 8 [14]
+    in pins, 1
+    jmp x-- right_bit
 .wrap
