@@ -10,6 +10,8 @@ def main() -> None:
     sub.add_parser("libraries", help="list drone sound libraries (synthetic profiles and datasets)")
     d = sub.add_parser("download", help="download a public dataset into ./data")
     d.add_argument("dataset", choices=[k for k, v in DATASETS.items() if v.auto_download])
+    d.add_argument("--accept-license", action="store_true",
+                   help="confirm you have read the dataset licence and your use complies with it")
     r = sub.add_parser("run", help="train all stages and run the simulated homing mission")
     r.add_argument("--drone", default="hexa_swap", choices=list(DRONE_PROFILES))
     r.add_argument("--dataset", default=None, choices=list(DATASETS),
@@ -66,8 +68,8 @@ def main() -> None:
     lv.add_argument("--pointer-cal", default="pointer_cal.json", help="head calibration file (JSON)")
     lv.add_argument("--range", type=float, default=None, help="source distance [m] for the head parallax correction")
     po = sub.add_parser("pointer", help="test and move the two camera heads (Pico pointer board)")
-    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal"])
-    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m]")
+    po.add_argument("action", choices=["status", "servo", "angle", "point", "release", "init-cal", "limits", "sweep"])
+    po.add_argument("values", nargs="*", type=float, help="servo: ch us | angle: ch deg | point: az el [range_m] | limits: ch min_us max_us | sweep: ch from_us to_us step_us")
     po.add_argument("--port", default=None)
     po.add_argument("--cal", default="pointer_cal.json", help="head calibration file (JSON)")
     po.add_argument("--hold", type=float, default=3.0, help="seconds to keep the position before releasing")
@@ -130,6 +132,18 @@ def main() -> None:
                 raise SystemExit(f"{a.cal} already exists (delete it first to start from the defaults)")
             Calibration().save(Path(a.cal)); print(f"written {a.cal} (default, safe limits 1200..1800 us)"); return
         cal = Calibration.load(Path(a.cal)) if Path(a.cal).exists() else Calibration()
+        if a.action == "limits":
+            from .pointer import CHANNELS
+            if len(a.values) != 3:
+                raise SystemExit("usage: pointer limits CH MIN_US MAX_US   (e.g. pointer limits 0 900 2100)")
+            ch, lo, hi = int(a.values[0]), int(a.values[1]), int(a.values[2])
+            if ch not in (0, 1, 2, 3) or not 500 <= lo < hi <= 2500:
+                raise SystemExit("channel must be 0..3 and 500 <= MIN_US < MAX_US <= 2500")
+            for head, chans in CHANNELS.items():
+                if ch in chans:
+                    hc = cal.upper if head == "U" else cal.lower
+                    hc.limits_us[chans.index(ch)] = [lo, hi]
+            cal.save(Path(a.cal)); print(f"channel {ch} limits {lo}..{hi} us saved in {a.cal}"); return
         p = Pointer(a.port, cal)
         v = a.values
         if a.action == "status":
@@ -138,6 +152,27 @@ def main() -> None:
             print(p.send(f"S {int(v[0])} {int(v[1])}"))
         elif a.action == "angle":
             print(p.send(f"A {int(v[0])} {v[1]}"))
+        elif a.action == "sweep":
+            import time
+            ch, u0, u1, du = int(v[0]), int(v[1]), int(v[2]), abs(int(v[3])) or 50
+            du = du if u1 >= u0 else -du
+            st = p.send("?")
+            lim = next((ln for ln in st if ln.startswith(f"OK ch{ch} ")), "")
+            print(lim.replace("OK ", "now: "))
+            print(f"sweeping channel {ch} from {u0} to {u1} us in steps of {abs(du)}, {a.hold:g} s each; Ctrl+C stops and releases")
+            try:
+                u = u0
+                while (u <= u1) if du > 0 else (u >= u1):
+                    p.send(f"S {ch} {u}")
+                    print(f"  {u} us", flush=True)
+                    t_end = time.time() + a.hold
+                    while time.time() < t_end:
+                        p.send("P"); time.sleep(0.5)
+                    u += du
+            except KeyboardInterrupt:
+                print(f"  stopped at {u} us")
+            p.release(); print("released")
+            return
         elif a.action == "point":
             head = p.point(v[0], v[1], v[2] if len(v) > 2 else None, min_step_deg=0)
             print(f"head {head}:", p.last[head])
@@ -158,7 +193,7 @@ def main() -> None:
         monitor(a.bno or None, None if a.mpu_bus < 0 else a.mpu_bus, a.seconds)
     elif a.cmd == "download":
         from .datasets import download
-        download(a.dataset)
+        download(a.dataset, accept_license=a.accept_license)
     else:
         from .pipeline import run
         run(a.drone, a.dataset, a.duration, a.seed, a.out, a.n_voiceprint, a.n_neural, not a.no_plots,

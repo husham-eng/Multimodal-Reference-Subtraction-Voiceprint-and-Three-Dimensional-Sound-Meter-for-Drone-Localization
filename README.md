@@ -27,9 +27,8 @@ python -m droneloc libraries                       # عرض المكتبات و�
 python -m droneloc run --drone hexa_swap           # تدريب كل المراحل وتشغيل مهمة الهبوط
 python -m droneloc run --drone dji_phantom4 --duration 60
 
-# استخدام تسجيلات حقيقية بدل النموذج الاصطناعي
-python -m droneloc download droneaudio
-python -m droneloc run --drone parrot_mambo --dataset droneaudio
+# اختياري: تسجيلات طرف ثالث (لكلٍّ رخصته، انظر DATA_LICENSES.md)
+python -m droneloc download svanstrom --accept-license
 
 python -m pytest tests
 ```
@@ -52,16 +51,16 @@ python -m pytest tests
 
 القيم تقريبية، ما عدا Bebop و Mambo فقد ضُبطت على ترددات BPF المقاسة من تسجيلاتهما الحقيقية. لدرون حقيقي، عدّل RPM والمستوى في `catalog.py` حسب قياساتك.
 
-**مجموعات بيانات حقيقية** (`--dataset`):
+**مجموعات بيانات اختيارية** (`--dataset`): لا يحتاجها المشروع؛ الافتراضي هو النماذج الاصطناعية وتسجيلاتك الخاصة. لا يُنزَّل شيء إلا بالخيار `--accept-license`، وتفاصيل الرخص في [DATA_LICENSES.md](DATA_LICENSES.md).
 
-| key | المحتوى | الاستخدام | تنزيل |
-|---|---|---|---|
-| `droneaudio` | DroneAudioDataset: Bebop و Mambo وخلفيات | تدريب البصمة | تلقائي |
-| `svanstrom` | Drone detection dataset: درون وهليكوبتر وخلفية (صوت وفيديو) | بيانات بصمة إضافية وتجارب متعددة الوسائط | تلقائي |
-| `esc50` | ESC-50: رياح ومطر وطيور ومحركات... | مكتبة تداخلات للطرح المرجعي | تلقائي |
-| `dregon` | DREGON: مصفوفة ٨ ميكروفونات على درون مع المواقع الحقيقية | التحقق من التحديد المكاني على بيانات حقيقية | يدوي |
-| `spcup2019` | IEEE SP Cup 2019 | قياس أداء تقدير الاتجاه | يدوي |
-| `salford_dronenoise` | DroneNoise Database (معايرة SPL) | معايرة مستوى ١ م لمقياس الصوت | يدوي |
+| key | المحتوى | الاستخدام | تنزيل | الرخصة |
+|---|---|---|---|---|
+| `droneaudio` | DroneAudioDataset: Bebop و Mambo وخلفيات | تدريب البصمة | تلقائي | أكاديمية غير تجارية، تمنع الاستخدام الأمني |
+| `svanstrom` | Drone detection dataset: درون وهليكوبتر وخلفية (صوت وفيديو) | بيانات بصمة إضافية وتجارب متعددة الوسائط | تلقائي | CC0 (حرة) |
+| `esc50` | ESC-50: رياح ومطر وطيور ومحركات... | مكتبة تداخلات للطرح المرجعي | تلقائي | CC BY-NC (غير تجارية) |
+| `dregon` | DREGON: مصفوفة ٨ ميكروفونات على درون مع المواقع الحقيقية | التحقق من التحديد المكاني على بيانات حقيقية | يدوي | لم تُتحقق |
+| `spcup2019` | IEEE SP Cup 2019 | قياس أداء تقدير الاتجاه | يدوي | لم تُتحقق |
+| `salford_dronenoise` | DroneNoise Database (معايرة SPL) | معايرة مستوى ١ م لمقياس الصوت | يدوي | لم تُتحقق |
 
 ## النتائج (المحاكاة الافتراضية، `hexa_swap`، ٤٠ ثانية، seed 0، نصف قطر الكرة 8 سم)
 
@@ -112,6 +111,7 @@ python experiments/make_figures.py
 | العمل على Raspberry Pi بنظام 32-بت (إصلاح تقطيع الإشارة، وبحث سريع عن الاتجاه للتشغيل المباشر) | `droneloc/dsp.py`, `droneloc/localization.py` |
 | رأسان للكاميرات بأربعة سيرفوهات (علوي ومقلوب) يتبعان الاتجاه الصوتي للتحقق البصري (`python -m droneloc pointer`، `live --pointer`) | [`hardware/pico_pointer/`](hardware/pico_pointer/), `droneloc/pointer.py` |
 | حساسا الاتجاه: BNO085 على الكرة وMPU-6050 على حامل الرأسين (`python -m droneloc imu`) | `droneloc/imu.py` |
+| أصوات اختبار اصطناعية لسبعة أنواع من الدرونات وإشارات مرجعية، تُشغَّل من الجوال أو سمّاعة (`python experiments/make_test_sounds.py`) | `experiments/make_test_sounds.py` |
 | مخططات التوصيل بالعربية، ودليل جلسة الاختبار على الباي، وملف تعريف لـ Claude Code | [`docs/figures_ar/`](docs/figures_ar/), [`docs/reports/`](docs/reports/) |
 
 البرامج الثابتة مبنية ومختبرة على المحاكاة، ولم تُجرَّب بعد على العتاد الحقيقي. خطوات الاختبار في [`docs/reports/Pi_Session_Runbook_AR.docx`](docs/reports/Pi_Session_Runbook_AR.docx).

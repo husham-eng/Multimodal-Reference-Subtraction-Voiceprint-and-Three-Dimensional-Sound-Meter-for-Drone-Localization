@@ -87,8 +87,11 @@ def find_port(product: str = "DroneLoc Mic Array") -> str | None:
     return picos[0].device if picos else None
 
 
-def level_db(frames: np.ndarray) -> np.ndarray:
-    """RMS level of each channel in dB re full scale."""
+def level_db(frames: np.ndarray, fs: float | None = None, highpass_hz: float | None = None) -> np.ndarray:
+    """RMS level of each channel in dB re full scale (optionally above `highpass_hz`)."""
     x = frames.astype(float) / 32768.0
     x = x - x.mean(0)
+    if highpass_hz and fs:
+        from scipy.signal import butter, sosfiltfilt
+        x = sosfiltfilt(butter(4, highpass_hz, "highpass", fs=fs, output="sos"), x, axis=0)
     return 20 * np.log10(np.sqrt(np.mean(x ** 2, 0)) + 1e-9)

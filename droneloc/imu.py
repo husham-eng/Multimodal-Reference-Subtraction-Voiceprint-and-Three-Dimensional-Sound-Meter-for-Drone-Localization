@@ -63,9 +63,12 @@ class BNO085RVC:
         self.ser = serial.Serial(port, 115200, timeout=0.1)
         self.buf = bytearray()
         self.last = None
+        self.n_bytes = 0            # bytes received so far (diagnosis: 0 = nothing on the wire)
 
     def read(self) -> dict | None:
-        self.buf += self.ser.read(self.ser.in_waiting or 1)
+        data = self.ser.read(self.ser.in_waiting or 1)
+        self.n_bytes += len(data)
+        self.buf += data
         frames = parse_rvc(self.buf)
         if frames:
             self.last = frames[-1]
@@ -79,6 +82,19 @@ class MPU6050:
         from smbus2 import SMBus
         self.bus, self.addr = SMBus(bus), addr
         self.bus.write_byte_data(addr, 0x6B, 0)       # wake up (PWR_MGMT_1)
+        self.gyro_bias = (0.0, 0.0, 0.0)
+
+    def calibrate_gyro(self, seconds: float = 1.0) -> tuple[float, float, float]:
+        """Average the gyro while the base is still and subtract it from now on
+        (an MPU-6050 typically reads a few deg/s at rest)."""
+        import time
+        acc, n, t0 = [0.0, 0.0, 0.0], 0, time.time()
+        while time.time() - t0 < seconds:
+            g = [v / 131 for v in self._words(0x43, 3)]
+            acc = [a + b for a, b in zip(acc, g)]; n += 1
+            time.sleep(0.005)
+        self.gyro_bias = tuple(a / max(n, 1) for a in acc)
+        return self.gyro_bias
 
     def _words(self, reg: int, n: int) -> list[int]:
         raw = self.bus.read_i2c_block_data(self.addr, reg, 2 * n)
@@ -86,7 +102,7 @@ class MPU6050:
 
     def read(self) -> dict:
         ax, ay, az = (v / 16384 for v in self._words(0x3B, 3))    # +-2 g
-        gx, gy, gz = (v / 131 for v in self._words(0x43, 3))      # +-250 deg/s
+        gx, gy, gz = (v / 131 - b for v, b in zip(self._words(0x43, 3), self.gyro_bias))  # +-250 deg/s
         roll, pitch = tilt_from_acc(ax, ay, az)
         return {"roll": roll, "pitch": pitch, "acc_g": (ax, ay, az), "gyro_dps": (gx, gy, gz)}
 
@@ -94,7 +110,19 @@ class MPU6050:
 def monitor(bno_port: str | None = "/dev/serial0", mpu_bus: int | None = 1, seconds: float | None = None) -> None:
     import time
     bno = BNO085RVC(bno_port) if bno_port else None
-    mpu = MPU6050(mpu_bus) if mpu_bus is not None else None
+    mpu = None
+    if mpu_bus is not None:
+        try:
+            mpu = MPU6050(mpu_bus)
+        except OSError as e:
+            print(f"MPU-6050 not found on I2C bus {mpu_bus} at 0x68 ({e}); check its wiring "
+                  "(SDA pin 3, SCL pin 5, VCC 3V3, GND) - continuing without it")
+    if mpu:
+        try:
+            b = mpu.calibrate_gyro()
+            print(f"MPU-6050 gyro bias {b[0]:+.1f} {b[1]:+.1f} {b[2]:+.1f} deg/s (keep the heads base still at start)")
+        except OSError as e:
+            print(f"MPU-6050 read failed during gyro calibration ({e}): loose SDA/SCL/VCC/GND wire?")
     t0 = time.time()
     print("sphere = BNO085 (yaw/pitch/roll) · heads base = MPU-6050 (roll/pitch, gyro). Ctrl+C to stop.")
     try:
@@ -105,13 +133,17 @@ def monitor(bno_port: str | None = "/dev/serial0", mpu_bus: int | None = 1, seco
                 b = bno.read() if bno else None
                 time.sleep(0.005)
             if bno:
-                parts.append("sphere: no data" if b is None else
+                parts.append(f"sphere: no data ({bno.n_bytes} bytes received)" if b is None else
                              f"sphere yaw {b['yaw']:7.2f} pitch {b['pitch']:6.2f} roll {b['roll']:6.2f}")
             if mpu:
-                m = mpu.read()
-                g = max(abs(v) for v in m["gyro_dps"])
-                parts.append(f"heads roll {m['roll']:6.2f} pitch {m['pitch']:6.2f} gyro {g:5.1f} deg/s"
-                             + ("  <- moving!" if g > 3 else ""))
+                try:
+                    m = mpu.read()
+                except OSError as e:
+                    parts.append(f"heads: I2C read error ({e.errno}) - loose MPU-6050 wire?")
+                else:
+                    g = max(abs(v) for v in m["gyro_dps"])
+                    parts.append(f"heads roll {m['roll']:6.2f} pitch {m['pitch']:6.2f} gyro {g:5.1f} deg/s"
+                                 + ("  <- moving!" if g > 3 else ""))
             print(" | ".join(parts), flush=True)
     except KeyboardInterrupt:
         pass

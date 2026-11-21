@@ -40,16 +40,17 @@ rd = PacketReader()
 print(f"reading {port} ...")
 
 if a.check:
-    print("channel levels in dBFS (silence ~ -70..-55, speaking near the mic ~ -40..-20, "
+    print("channel levels above 100 Hz in dBFS (silence ~ -70..-55, speaking near the mic ~ -40..-20, "
           "-90 or lower = mic not connected / wrong wiring). Ctrl+C to stop.")
     try:
         while True:
             blk, t0 = [], time.time()
             while time.time() - t0 < 0.5:
-                blk += [f for _, _, _, f in rd.feed(ser.read(4096))]
+                for _, _, f_s, f in rd.feed(ser.read(4096)):
+                    blk.append(f); fs_chk = f_s
             if not blk:
                 print("no data from the Pico"); continue
-            lv = level_db(np.concatenate(blk))
+            lv = level_db(np.concatenate(blk), fs_chk, 100.0)   # above 100 Hz: ignores slow pressure drift
             print(" ".join(f"{i:2d}:{v:6.1f}" for i, v in enumerate(lv)),
                   f"| lost {rd.lost} bad {rd.bad}")
     except KeyboardInterrupt:

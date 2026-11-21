@@ -305,3 +305,13 @@ def test_imu_rvc_parser_and_tilt():
     assert roll == 0 and pitch == 0
     roll, pitch = tilt_from_acc(-0.5, 0.0, 0.866)
     assert abs(pitch - 30) < 0.1
+
+
+def test_download_requires_licence_acceptance(tmp_path):
+    from droneloc.catalog import DATASETS
+    from droneloc.datasets import download
+    assert all(d.licence for d in DATASETS.values())
+    assert DATASETS["droneaudio"].commercial_ok is False and DATASETS["svanstrom"].commercial_ok is True
+    with pytest.raises(SystemExit):
+        download("svanstrom", tmp_path)            # no --accept-license: nothing fetched
+    assert not (tmp_path / "svanstrom").exists()

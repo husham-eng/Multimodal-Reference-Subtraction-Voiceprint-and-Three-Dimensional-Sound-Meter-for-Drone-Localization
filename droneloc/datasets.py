@@ -14,11 +14,15 @@ from .synth import synthesize_drone
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
-def download(key: str, dest: Path = DATA_DIR) -> Path:
-    """Sparse, shallow git clone of an auto-downloadable dataset."""
+def download(key: str, dest: Path = DATA_DIR, accept_license: bool = False) -> Path:
+    """Sparse, shallow git clone of an auto-downloadable dataset, after its licence is accepted."""
     info = DATASETS[key]
     if not info.auto_download:
         raise SystemExit(f"'{key}' must be downloaded manually from {info.url} into {dest / key}")
+    print(f"{info.name}\n  licence: {info.licence}")
+    if not accept_license:
+        raise SystemExit("  not downloaded: read the licence on the dataset page, then repeat with "
+                         "--accept-license if your use complies with it (see DATA_LICENSES.md)")
     target = dest / key
     if target.exists():
         print(f"{target} already exists")
